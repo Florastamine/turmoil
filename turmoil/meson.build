@@ -1,5 +1,6 @@
 source = [
     'src/nt.cpp',
+    'src/cpu/cpu.cpp',
     'src/process/process.cpp'
 ]
 
