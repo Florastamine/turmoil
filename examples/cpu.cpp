@@ -12,7 +12,7 @@ int main(int, const char *[])
     using std::flush;
     
     if (turmoil::cpu::CPUInformation cpu; cpu.Initialize()) {
-        cout << "GetBrandID(): " << cpu.GetBrandID() << n;
+        cout << "GetBrandID(): " << cpu.GetBrandID() << " (of type " << magic_enum::enum_name(cpu.GetVendorType()) << ')' << n;
         cout << "GetBrandName(): " << cpu.GetBrandName() << n;
         cout << "GetCPUCount()/GetLogicalCPUCount(): " << cpu.GetCPUCount() << '/' << cpu.GetLogicalCPUCount() << n;
         {

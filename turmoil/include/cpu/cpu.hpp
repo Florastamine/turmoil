@@ -47,6 +47,8 @@ enum class CPUCapabilities : uint16_t {
 
 enum class CPUCacheType : uint8_t { I, D, Unified, Reserved };
 
+enum class CPUVendorType : uint8_t { AMD, Intel, Reserved };
+
 struct CPUCacheInformation {
 private:
     CPUCacheType type_ = CPUCacheType::Reserved;
@@ -104,6 +106,8 @@ private:
     std::vector<uint64_t> frequencies_ = {};
     std::unordered_map<CPUCapabilities, bool> capabilities_ = {};
     std::vector<CPUCacheInformation> cache_ = {};
+
+    CPUVendorType vendor_type_ = CPUVendorType::Reserved;
     
     uint32_t EAX, EBX, ECX, EDX;
 
@@ -112,6 +116,7 @@ private:
 
     bool ParseBasicInformation();
     bool ParseCPUIDInformation();
+    bool ParseVendorType();
     
 public:
     CPUInformation() {}
@@ -129,6 +134,8 @@ public:
     uint32_t GetProcessorType() const { return cpu_type_; }
     uint32_t GetModelExtended() const { return model_extended_; }
     uint32_t GetFamilyIDExtended() const { return family_extended_; }
+
+    CPUVendorType GetVendorType() const { return vendor_type_; }
 
     bool HasFeature(const CPUCapabilities &capability) const { return capabilities_.find(capability) != capabilities_.end(); }
 

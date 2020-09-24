@@ -244,12 +244,25 @@ bool CPUInformation::ParseCPUIDInformation()
     return true;
 }
 
+bool CPUInformation::ParseVendorType()
+{
+    if (cpu_brand_ID_ == "GenuineIntel")
+        vendor_type_ = CPUVendorType::Intel;
+    else if (cpu_brand_ID_ == "AuthenticAMD" || cpu_brand_name_ == "AMDisbetter!")
+        vendor_type_ = CPUVendorType::AMD;
+    else
+        vendor_type_ = CPUVendorType::Reserved;
+    
+    return true;
+}
+
 bool CPUInformation::Initialize()
 {
     if (!ready_) {
         ready_ = 
             ParseBasicInformation() &&
-            ParseCPUIDInformation();
+            ParseCPUIDInformation() &&
+            ParseVendorType();
     }
 
     return ready_;
