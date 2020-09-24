@@ -172,6 +172,7 @@ bool CPUInformation::ParseCPUIDInformation()
         if ((EBX >>  5) & 0x1) capabilities_[CPUCapabilities::AVX2] = true;
         if ((EBX >>  8) & 0x1) capabilities_[CPUCapabilities::BMI2] = true;
         if ((EBX >> 11) & 0x1) capabilities_[CPUCapabilities::TSX] = true;
+        if ((EBX >> 23) & 0x1) capabilities_[CPUCapabilities::CLFLUSHOPT] = true;
         
         // If AVX512_F (foundation) isn't present, then the rest of AVX-512 extensions wouldn't present, too.
         if ((EBX >> 16) & 0x1) capabilities_[CPUCapabilities::AVX512_F] = true;
@@ -244,7 +245,7 @@ bool CPUInformation::ParseCPUIDInformation()
     return true;
 }
 
-bool CPUInformation::ParseVendorType()
+bool CPUInformation::ParseVendorTypeInformation()
 {
     if (cpu_brand_ID_ == "GenuineIntel")
         vendor_type_ = CPUVendorType::Intel;
@@ -256,13 +257,23 @@ bool CPUInformation::ParseVendorType()
     return true;
 }
 
+bool CPUInformation::ParseCLFLUSHLineSizeInformation()
+{
+    if (capabilities_[CPUCapabilities::CLFLUSH] && __get_cpuid(1, &EAX, &EBX, &ECX, &EDX)) {
+        clflush_size_ = (EBX >> 8) & 0xFF;
+    }
+
+    return true;
+}
+
 bool CPUInformation::Initialize()
 {
     if (!ready_) {
         ready_ = 
             ParseBasicInformation() &&
             ParseCPUIDInformation() &&
-            ParseVendorType();
+            ParseVendorTypeInformation() &&
+            ParseCLFLUSHLineSizeInformation();
     }
 
     return ready_;

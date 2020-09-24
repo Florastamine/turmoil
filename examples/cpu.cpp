@@ -36,6 +36,8 @@ int main(int, const char *[])
           cout << cpu << ' ';
         }
         cout << n;
+
+        cout << "GetCLFLUSHLineSize(): " << cpu.GetCLFLUSHLineSize() << " bytes" << n;
         
         cout << "GetCapabilities(): " << n;
         for (const auto &capability : cpu.GetCapabilities()) {

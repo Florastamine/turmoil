@@ -29,6 +29,7 @@ namespace cpu {
 enum class CPUCapabilities : uint16_t {
     MMX, EXTENDED_MMX, x87, PAE, // EXTENDED_MMX is AMD MMX
     CLFLUSH, // Flush Cache Line having the _mm_clflush() intrinsic
+    CLFLUSHOPT,
     SSE, SSE2, SSE3, SSSE3, SSE4A, SSE41, SSE42,
     AVX, AVX2, 
     AVX512_F, AVX512_DQ, AVX512_IFMA, AVX512_PF, AVX512_ER, AVX512_CD, AVX512_BW, AVX512_VL,
@@ -102,6 +103,7 @@ private:
     uint32_t cpu_type_ = 0;
     uint32_t model_extended_ = 0;
     uint32_t family_extended_ = 0;
+    uint32_t clflush_size_ = 0;
 
     std::vector<uint64_t> frequencies_ = {};
     std::unordered_map<CPUCapabilities, bool> capabilities_ = {};
@@ -116,7 +118,8 @@ private:
 
     bool ParseBasicInformation();
     bool ParseCPUIDInformation();
-    bool ParseVendorType();
+    bool ParseVendorTypeInformation();
+    bool ParseCLFLUSHLineSizeInformation();
     
 public:
     CPUInformation() {}
@@ -134,6 +137,7 @@ public:
     uint32_t GetProcessorType() const { return cpu_type_; }
     uint32_t GetModelExtended() const { return model_extended_; }
     uint32_t GetFamilyIDExtended() const { return family_extended_; }
+    uint32_t GetCLFLUSHLineSize() const { return clflush_size_; }
 
     CPUVendorType GetVendorType() const { return vendor_type_; }
 
