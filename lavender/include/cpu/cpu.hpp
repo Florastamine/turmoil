@@ -22,7 +22,7 @@ typedef struct _PROCESSOR_POWER_INFORMATION {
 } PROCESSOR_POWER_INFORMATION, *PPROCESSOR_POWER_INFORMATION;
 #endif
 
-namespace turmoil {
+namespace lavender {
 
 namespace cpu {
 

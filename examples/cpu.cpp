@@ -11,7 +11,7 @@ int main(int, const char *[])
     using std::endl;
     using std::flush;
     
-    if (turmoil::cpu::CPUInformation cpu; cpu.Initialize()) {
+    if (lavender::cpu::CPUInformation cpu; cpu.Initialize()) {
         cout << "GetBrandID(): " << cpu.GetBrandID() << " (of type " << magic_enum::enum_name(cpu.GetVendorType()) << ')' << n;
         cout << "GetBrandName(): " << cpu.GetBrandName() << n;
         cout << "GetCPUCount()/GetLogicalCPUCount(): " << cpu.GetCPUCount() << '/' << cpu.GetLogicalCPUCount() << n;
@@ -56,9 +56,9 @@ int main(int, const char *[])
         }
         cout << n;
 
-        cout << "Intel virtualization flag: " << cpu.HasFeature(turmoil::cpu::CPUCapabilities::VMX) << n;
-        cout << "Intel SpeedStep flag: " << cpu.HasFeature(turmoil::cpu::CPUCapabilities::EST) << n;
-        cout << "AMD virtualization flag: " << cpu.HasFeature(turmoil::cpu::CPUCapabilities::SVM) << n;
+        cout << "Intel virtualization flag: " << cpu.HasFeature(lavender::cpu::CPUCapabilities::VMX) << n;
+        cout << "Intel SpeedStep flag: " << cpu.HasFeature(lavender::cpu::CPUCapabilities::EST) << n;
+        cout << "AMD virtualization flag: " << cpu.HasFeature(lavender::cpu::CPUCapabilities::SVM) << n;
 
         cout << flush;
     }

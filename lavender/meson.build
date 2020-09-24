@@ -4,8 +4,8 @@ source = [
     'src/process/process.cpp'
 ]
 
-turmoil = static_library (
-    'turmoil',
+lavender = static_library (
+    'lavender',
     sources : source,
     cpp_args : ['-std=c++17', '-g'],
     link_args : [

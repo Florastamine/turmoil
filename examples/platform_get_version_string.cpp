@@ -4,5 +4,5 @@
 
 int main(int, const char *[])
 {
-    std::cout << turmoil::platform::get_version_string().value_or(std::string()) << '\n';
+    std::cout << lavender::platform::get_version_string().value_or(std::string()) << '\n';
 }

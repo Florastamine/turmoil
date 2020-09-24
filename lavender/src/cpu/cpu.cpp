@@ -17,7 +17,7 @@
 
 #include <third_party/magic_enum.hpp>
 
-namespace turmoil {
+namespace lavender {
 
 namespace cpu {
 

@@ -1,11 +1,11 @@
 project (
-    'turmoil', 
+    'lavender', 
     ['cpp'],
     
     # Due to cpp_std not being honored (github.com/mesonbuild/meson/issues/5590), for now we'll have to resort to setting C++ standard through cpp_args.
 )
 
-subdir ('turmoil')
+subdir ('lavender')
 
 cpp_args = [
     '-std=c++17', 
@@ -17,7 +17,7 @@ link_args = [
 ]
 
 include_directories = [
-    include_directories('turmoil/include')
+    include_directories('lavender/include')
 ]
 
 executable (
@@ -26,7 +26,7 @@ executable (
     cpp_args : cpp_args,
     link_args : link_args,
     include_directories : include_directories,
-    link_with : turmoil
+    link_with : lavender
 )
 
 executable (
@@ -35,7 +35,7 @@ executable (
     cpp_args : cpp_args,
     link_args : link_args,
     include_directories : include_directories,
-    link_with : turmoil
+    link_with : lavender
 )
 
 executable (
@@ -44,5 +44,5 @@ executable (
     cpp_args : cpp_args,
     link_args : link_args,
     include_directories : include_directories,
-    link_with : turmoil
+    link_with : lavender
 )

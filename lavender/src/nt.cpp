@@ -10,7 +10,7 @@
     #include <ntstatus.h>
 #endif
 
-namespace turmoil {
+namespace lavender {
 
 namespace platform {
 
