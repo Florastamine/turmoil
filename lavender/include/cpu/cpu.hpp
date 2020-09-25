@@ -5,6 +5,8 @@
     #include <windows.h>
 #endif
 
+#include <compiler.hpp>
+
 #include <stdint.h>
 
 #include <string>
@@ -27,7 +29,7 @@ namespace lavender {
 namespace cpu {
 
 enum class CPUCapabilities : uint16_t {
-    MMX, EXTENDED_MMX, x87, PAE, // EXTENDED_MMX is AMD MMX
+    MMX, EXTENDED_MMX, x87, PAE, EM64T, // EXTENDED_MMX is AMD MMX
     CLFLUSH, // Flush Cache Line having the _mm_clflush() intrinsic
     CLFLUSHOPT,
     SSE, SSE2, SSE3, SSSE3, SSE4A, SSE41, SSE42, SSE5,

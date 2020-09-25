@@ -10,12 +10,36 @@
     #include <Powrprof.h>
 #endif
 
-#include <cpuid.h>
+#if defined(LAVENDER_COMPILER_MSVC)
+    #include <intrin.h>
+#elif defined(LAVENDER_COMPILER_GCC) || defined(LAVENDER_COMPILER_CLANG)
+    #include <cpuid.h>
+#endif
 
 #include <nt.hpp>
 #include <process/process.hpp>
 
 #include <third_party/magic_enum.hpp>
+
+static bool cpuid(const uint32_t leaf, const uint32_t subleaf, uint32_t *EAX, uint32_t *EBX, uint32_t *ECX, uint32_t *EDX)
+{
+#if defined(LAVENDER_COMPILER_MSVC)
+    std::array<int, 4> registers;
+    __cpuidex(registers.data(), leaf, subleaf);
+
+    *EAX = registers[0];
+    *EBX = registers[1];
+    *ECX = registers[2];
+    *EDX = registers[3];
+
+    // __cpuidex() doesn't return anything indicating if the query was granted or not, therefore the return here is moot.
+    return true;
+#elif defined(LAVENDER_COMPILER_GCC) || defined(LAVENDER_COMPILER_CLANG)
+    // Apparently LLVM is the same, returning 1 after __cpuid_count(), with failure only on (__max_leaf == 0 || __max_leaf < __leaf).
+    // https://github.com/microsoft/clang/blob/master/lib/Headers/cpuid.h
+    return __get_cpuid_count(leaf, subleaf, EAX, EBX, ECX, EDX);
+#endif
+}
 
 namespace lavender {
 
@@ -24,19 +48,14 @@ namespace cpu {
 std::string CPUInformation::ParseArchitectureBrand(const uint16_t architecture)
 {
     switch (architecture) {
-        case PROCESSOR_ARCHITECTURE_AMD64:
-            return "PROCESSOR_ARCHITECTURE_AMD64";
-        case PROCESSOR_ARCHITECTURE_ARM:
-            return "PROCESSOR_ARCHITECTURE_ARM";
-        case PROCESSOR_ARCHITECTURE_ARM64:
-            return "PROCESSOR_ARCHITECTURE_ARM64";
-        case PROCESSOR_ARCHITECTURE_IA64:
-            return "PROCESSOR_ARCHITECTURE_IA64";
-        case PROCESSOR_ARCHITECTURE_INTEL:
-            return "PROCESSOR_ARCHITECTURE_INTEL";
-        default:
-            return "PROCESSOR_ARCHITECTURE_UNKNOWN";
+        case PROCESSOR_ARCHITECTURE_AMD64: return "x86-64";
+        case PROCESSOR_ARCHITECTURE_ARM:   return "ARM";
+        case PROCESSOR_ARCHITECTURE_ARM64: return "ARM64";
+        case PROCESSOR_ARCHITECTURE_IA64:  return "Intel Itanium";
+        case PROCESSOR_ARCHITECTURE_INTEL: return "x86";
     }
+    
+    return "Unknown";
 }
 
 CPUCacheType CPUInformation::ParseCacheType(const uint32_t type)
@@ -89,7 +108,7 @@ bool CPUInformation::ParseBasicInformation()
 bool CPUInformation::ParseCPUIDInformation()
 {
     // Query for processor manufacturer ID strings (e. g. "GenuineIntel", "AuthenticAMD", "bhyve bhyve "...)
-    if (const auto r = __get_cpuid(0, &EAX, &EBX, &ECX, &EDX); !r) {
+    if (const auto r = cpuid(0, 0, &EAX, &EBX, &ECX, &EDX); !r) {
         return false;
     }
     else {
@@ -103,7 +122,7 @@ bool CPUInformation::ParseCPUIDInformation()
     }
 
     // Query for basic processor properties (stepping, family (extended) ID, model (extended)...)
-    if (const auto r = __get_cpuid(1, &EAX, &EBX, &ECX, &EDX); !r) {
+    if (const auto r = cpuid(1, 0, &EAX, &EBX, &ECX, &EDX); !r) {
         return false;
     }
     else {
@@ -117,9 +136,9 @@ bool CPUInformation::ParseCPUIDInformation()
 
     // Query for processor's brand name
     if (uint32_t brand[12]; 
-        !(__get_cpuid(0x80000002, &brand[0], &brand[1], &brand[2], &brand[3]) &&
-        __get_cpuid(0x80000003, &brand[4], &brand[5], &brand[6], &brand[7]) &&
-        __get_cpuid(0x80000004, &brand[8], &brand[9], &brand[10], &brand[11]))) {
+        !(cpuid(0x80000002, 0, &brand[0], &brand[1], &brand[2], &brand[3]) &&
+        cpuid(0x80000003, 0, &brand[4], &brand[5], &brand[6], &brand[7]) &&
+        cpuid(0x80000004, 0, &brand[8], &brand[9], &brand[10], &brand[11]))) {
         return false;
     }
     else {
@@ -136,7 +155,7 @@ bool CPUInformation::ParseCPUIDInformation()
     }
 
     // Basic capabilities EAX = 1
-    if (const auto r = __get_cpuid(1, &EAX, &EBX, &ECX, &EDX); !r) {
+    if (const auto r = cpuid(1, 0, &EAX, &EBX, &ECX, &EDX); !r) {
         return false;
     }
     else {
@@ -169,7 +188,7 @@ bool CPUInformation::ParseCPUIDInformation()
     }
 
     // Extended capabilities EAX = 7, ECX = 0
-    if (const auto r = __get_cpuid_count(7, 0, &EAX, &EBX, &ECX, &EDX); !r) {
+    if (const auto r = cpuid(7, 0, &EAX, &EBX, &ECX, &EDX); !r) {
         return false;
     }
     else {
@@ -202,7 +221,7 @@ bool CPUInformation::ParseCPUIDInformation()
     }
 
     // Extended capabilities EAX = 7, ECX = 1
-    if (const auto r = __get_cpuid_count(7, 1, &EAX, &EBX, &ECX, &EDX); !r) {
+    if (const auto r = cpuid(7, 1, &EAX, &EBX, &ECX, &EDX); !r) {
         return false;
     }
     else {
@@ -210,13 +229,14 @@ bool CPUInformation::ParseCPUIDInformation()
     }
 
     // Additional capabilities EAX = 80000001h (NX, EXTENDED_MMX, RDTSCP, SSE4A)
-    if (const auto r = __get_cpuid(0x80000001, &EAX, &EBX, &ECX, &EDX); !r) {
+    if (const auto r = cpuid(0x80000001, 0, &EAX, &EBX, &ECX, &EDX); !r) {
         return false;
     }
     else {
         if ((EDX >> 20) & 0x1) capabilities_[CPUCapabilities::NX] = true;
         if ((EDX >> 22) & 0x1) capabilities_[CPUCapabilities::EXTENDED_MMX] = true;
         if ((EDX >> 27) & 0x1) capabilities_[CPUCapabilities::RDTSCP] = true;
+        if ((EDX >> 29) & 0x1) capabilities_[CPUCapabilities::EM64T] = true;
 
         if ((ECX >>  6) & 0x1) capabilities_[CPUCapabilities::SSE4A] = true;
         if ((ECX >> 11) & 0x1) capabilities_[CPUCapabilities::XOP] = true;
@@ -235,7 +255,7 @@ bool CPUInformation::ParseCPUIDInformation()
     // See https://www.intel.com/content/www/us/en/architecture-and-technology/64-ia-32-architectures-software-developer-vol-2a-manual.html, page 292 
     // (CPU Identification)
     for (int i = 0; i < 16; ++i) {
-        if (__get_cpuid_count(4, i, &EAX, &EBX, &ECX, &EDX)) {
+        if (cpuid(4, i, &EAX, &EBX, &ECX, &EDX)) {
             uint32_t type = EAX & 0x1F;
 
             if (type == 0) {
@@ -271,7 +291,7 @@ bool CPUInformation::ParseVendorTypeInformation()
 
 bool CPUInformation::ParseCLFLUSHLineSizeInformation()
 {
-    if (capabilities_[CPUCapabilities::CLFLUSH] && __get_cpuid(1, &EAX, &EBX, &ECX, &EDX)) {
+    if (capabilities_[CPUCapabilities::CLFLUSH] && cpuid(1, 0, &EAX, &EBX, &ECX, &EDX)) {
         clflush_size_ = (EBX >> 8) & 0xFF;
     }
 

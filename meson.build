@@ -7,15 +7,6 @@ project (
 
 subdir ('lavender')
 
-cpp_args = [
-    '-std=c++17', 
-    '-g'
-]
-
-link_args = [
-    '-lPowrprof' 
-]
-
 include_directories = [
     include_directories('lavender/include')
 ]
