@@ -158,8 +158,13 @@ bool CPUInformation::ParseCPUIDInformation()
         if ((ECX >> 20) & 0x1) capabilities_[CPUCapabilities::SSE42] = true;
         if ((ECX >> 23) & 0x1) capabilities_[CPUCapabilities::POPCNT] = true;
         if ((ECX >> 25) & 0x1) capabilities_[CPUCapabilities::AES] = true;
+        if ((ECX >> 26) & 0x1) capabilities_[CPUCapabilities::XSAVE] = true;
+        if ((ECX >> 27) & 0x1) capabilities_[CPUCapabilities::OSXSAVE] = true;
         if ((ECX >> 28) & 0x1) capabilities_[CPUCapabilities::AVX] = true;
-        if ((ECX >> 29) & 0x1) capabilities_[CPUCapabilities::F16C] = true;
+        if ((ECX >> 29) & 0x1) {
+            capabilities_[CPUCapabilities::F16C] = true;
+            capabilities_[CPUCapabilities::CVT16] = true;
+        }
         if ((ECX >> 30) & 0x1) capabilities_[CPUCapabilities::RDRAND] = true;
     }
 
@@ -214,14 +219,21 @@ bool CPUInformation::ParseCPUIDInformation()
         if ((EDX >> 27) & 0x1) capabilities_[CPUCapabilities::RDTSCP] = true;
 
         if ((ECX >>  6) & 0x1) capabilities_[CPUCapabilities::SSE4A] = true;
+        if ((ECX >> 11) & 0x1) capabilities_[CPUCapabilities::XOP] = true;
         
         if ((ECX >>  2) & 0x1) capabilities_[CPUCapabilities::SVM] = true;
     }
+
+    capabilities_[CPUCapabilities::SSE5] = 
+        capabilities_[CPUCapabilities::XOP] &&
+        capabilities_[CPUCapabilities::FMA4] &&
+        (capabilities_[CPUCapabilities::CVT16] || capabilities_[CPUCapabilities::F16C]) &&
+        capabilities_[CPUCapabilities::AVX] &&
+        capabilities_[CPUCapabilities::XSAVE];
     
     // Query for cache information: line size, associativity & base size. Note that AMD does things differently.
     // See https://www.intel.com/content/www/us/en/architecture-and-technology/64-ia-32-architectures-software-developer-vol-2a-manual.html, page 292 
     // (CPU Identification)
-
     for (int i = 0; i < 16; ++i) {
         if (__get_cpuid_count(4, i, &EAX, &EBX, &ECX, &EDX)) {
             uint32_t type = EAX & 0x1F;
