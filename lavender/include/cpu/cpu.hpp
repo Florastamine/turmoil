@@ -39,6 +39,7 @@ enum class CPUCapabilities : uint16_t {
     AVX512_VNNI, AVX512_BITALG, AVX512_VPOPCNTDQ,
     FMA3, FMA4,
     BMI1, BMI2,
+    AMX, AMX_INT8, AMX_BF16, // Intel AMX
     XOP, XSAVE, OSXSAVE, CVT16, // CVT16 = F16C, which it was originally called
     TSC, RDTSCP, 
     POPCNT, HTT, RDRAND, RDSEED, F16C, NX,

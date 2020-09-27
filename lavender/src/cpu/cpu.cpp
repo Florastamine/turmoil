@@ -69,7 +69,9 @@ CPUCacheType CPUInformation::ParseCacheType(const uint32_t type)
             return CPUCacheType::Unified;
         case 0:
             // Purposefully ignore the end-of-cache enumeration value, which is zero (we've already discarded them when doing CPUID 04h)
+#if defined(LAVENDER_COMPILER_GCC) || defined(LAVENDER_COMPILER_CLANG)
         case 4 ... 31:
+#endif
         default:
             return CPUCacheType::Reserved;
     }
@@ -218,6 +220,10 @@ bool CPUInformation::ParseCPUIDInformation()
         if ((EDX >>  2) & 0x1) capabilities_[CPUCapabilities::AVX512_4VNNIW] = true;
         if ((EDX >>  3) & 0x1) capabilities_[CPUCapabilities::AVX512_4FMAPS] = true;
         if ((EDX >>  8) & 0x1) capabilities_[CPUCapabilities::AVX512_VP2INTERSECT] = true;
+
+        if ((EDX >> 22) & 0x1) capabilities_[CPUCapabilities::AMX_BF16] = true;
+        if ((EDX >> 24) & 0x1) capabilities_[CPUCapabilities::AMX] = true;
+        if ((EDX >> 25) & 0x1) capabilities_[CPUCapabilities::AMX_INT8] = true;
     }
 
     // Extended capabilities EAX = 7, ECX = 1
