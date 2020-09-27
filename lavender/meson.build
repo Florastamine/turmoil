@@ -1,17 +1,23 @@
+# Licensed under GPLv2 or later until the library is deemed stable enough for general use, see LICENSE in the source tree.
+
 source = [
     'src/nt.cpp',
     'src/cpu/cpu.cpp',
     'src/process/process.cpp'
 ]
 
-cc = meson.get_compiler('cpp')
+cxx = meson.get_compiler('cpp')
+cxx_id = cxx.get_id()
 
-if cc.get_id() == 'msvc'
-    cpp_args = ['/std:c++17']
+if cxx_id == 'msvc'
+    # Due to cpp_std not being honored (github.com/mesonbuild/meson/issues/5590), for now we'll have to resort to setting C++ standard through cpp_args.
+    cpp_args = ['/std:c++17', '/DEBUG:FULL']
     link_args = ['PowrProf.lib']
-else
+elif cxx_id == 'gcc' or cxx_id == 'llvm'
     cpp_args = ['-std=c++17', '-g']
     link_args = ['-lPowrProf', '-lstdc++']
+else
+    error('\nUnidentified compiler: ' + cxx_id + '\n' + meson.project_name() + ' requires either GCC, LLVM/Clang, or MSVC.')
 endif
 
 lavender = static_library (
