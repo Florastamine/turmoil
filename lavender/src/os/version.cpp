@@ -15,7 +15,7 @@ namespace lavender {
 
 namespace os {
 
-static const std::unordered_map<OSVersion, std::string> version_code_map = {
+static const std::unordered_map<OSVersion, std::string> NT_version_code_table = {
     {OSVersion::NT_UNIDENTIFIED, "Unidentified"},
     {OSVersion::NT_2000, "2000"},
     {OSVersion::NT_XP, "XP"},
@@ -27,11 +27,51 @@ static const std::unordered_map<OSVersion, std::string> version_code_map = {
     {OSVersion::NT_10_2016_2019, "10/Server 2016/Server 2019"}
 };
 
+// https://docs.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getproductinfo
+static const std::unordered_map<uint32_t, std::string> NT_product_type_table = {
+    {PRODUCT_BUSINESS, "Business"},
+    {PRODUCT_BUSINESS_N, "Business N"},
+    {PRODUCT_CORE, "10 Home"},
+    {PRODUCT_CORE_COUNTRYSPECIFIC, "10 Home (China)"},
+    {PRODUCT_CORE_N, "10 Home N"},
+    {PRODUCT_CORE_SINGLELANGUAGE, "10 Home (Single Language)"},
+    {PRODUCT_EDUCATION, "10 Education"},
+    {PRODUCT_EDUCATION_N, "10 Education N"},
+    {PRODUCT_ENTERPRISE, "10 Enterprise"},
+    {PRODUCT_ENTERPRISE_E, "10 Enterprise E"},
+    {PRODUCT_ENTERPRISE_N, "10 Enterprise N"},
+    {PRODUCT_ENTERPRISE_EVALUATION, "10 Enterprise Evaluation"},
+    {PRODUCT_ENTERPRISE_N_EVALUATION, "10 Enterprise N Evaluation"},
+    {PRODUCT_ENTERPRISE_S, "10 Enterprise 2015 LTSB"},
+    {PRODUCT_ENTERPRISE_S_EVALUATION, "10 Enterprise 2015 LTSB Evaluation"},
+    {PRODUCT_ENTERPRISE_S_N, "10 Enterprise 2015 LTSB N"},
+    {PRODUCT_ENTERPRISE_S_N_EVALUATION, "10 Enterprise 2015 LTSB N Evaluation"},
+    {PRODUCT_STARTER, "Starter"},
+    {PRODUCT_STARTER_E, "Starter E"},
+    {PRODUCT_STARTER_N, "Starter N"},
+    {PRODUCT_HOME_BASIC, "Home Basic"},
+    {PRODUCT_HOME_BASIC_E, "Home Basic E"},
+    {PRODUCT_HOME_BASIC_N, "Home Basic N"},
+    {PRODUCT_HOME_PREMIUM, "Home Premium"},
+    {PRODUCT_HOME_PREMIUM_E, "Home Premium E"},
+    {PRODUCT_HOME_PREMIUM_N, "Home Premium N"},
+    {PRODUCT_ULTIMATE, "Ultimate"},
+    {PRODUCT_ULTIMATE_E, "Ultimate E"},
+    {PRODUCT_ULTIMATE_N, "Ultimate N"},
+    {PRODUCT_IOTUAP, "10 IoT Core"},
+    {/* PRODUCT_IOTUAPCOMMERCIAL */ 0x00000083, "10 IoT Core Commercial"},
+    {PRODUCT_MOBILE_CORE, "10 Mobile"},
+    {PRODUCT_MOBILE_ENTERPRISE, "10 Mobile Enterprise"},
+    {PRODUCT_PROFESSIONAL, "10 Pro"},
+    {PRODUCT_PROFESSIONAL_E, "10 Pro E"},
+    {PRODUCT_PROFESSIONAL_N, "10 Pro N"},
+    {PRODUCT_SERVER_FOUNDATION, "Server Foundation"}
+};
 
 // As you'll be needing the DDK for proper RtlGetVersion() access, just fetch it from ntdll.dll.
 // Note that RtlGetVersion() is the kernel-mode equivalent of GetVersionEx*() which is deprecated.
-using RtlGetVersionPtr = NTSTATUS (WINAPI *)(PRTL_OSVERSIONINFOW);
-static bool GetNTVersionInformation(RTL_OSVERSIONINFOW *r)
+using RtlGetVersionPtr = NTSTATUS (WINAPI *)(PRTL_OSVERSIONINFOEXW);
+static bool GetNTVersionInformation(RTL_OSVERSIONINFOEXW *r)
 {
     const HMODULE module = ::GetModuleHandle("ntdll.dll");
     if (module != nullptr)
@@ -69,21 +109,39 @@ static OSVersion GetNTVersionCode(const uint32_t major, const uint32_t minor)
         return OSVersion::NT_UNIDENTIFIED;
 }
 
-bool OSVersionInformation::Initialize()
+static std::string GetNTProductType(const uint32_t type)
 {
-    RTL_OSVERSIONINFOW r = {0};
+    if (const std::unordered_map<uint32_t, std::string>::const_iterator i = NT_product_type_table.find(type); i != NT_product_type_table.end()) {
+        return std::string(i->second);
+    }
 
-    if (GetNTVersionInformation(&r)) {
+    return "(?)";
+}
+
+bool OSVersionInformation::ParseVersionInformation()
+{
+    if (RTL_OSVERSIONINFOEXW r = {0}; GetNTVersionInformation(&r)) {
         version_ = GetNTVersionCode(r.dwMajorVersion, r.dwMinorVersion);
         build_number_ = r.dwBuildNumber;
 
-        if (const auto ptr = version_code_map.find(version_); ptr != version_code_map.end())
+        if (const auto ptr = NT_version_code_table.find(version_); ptr != NT_version_code_table.end())
             version_string_ = ptr->second;
+        
+        if (::DWORD product_type = PRODUCT_UNDEFINED; ::GetProductInfo(r.dwMajorVersion, r.dwMinorVersion, r.wServicePackMajor, r.wServicePackMinor, &product_type) != 0) {
+            product_type_ = GetNTProductType(product_type);
+        }
         
         return true;
     }
 
     return false;
+}
+
+bool OSVersionInformation::Initialize()
+{
+    ready_ = ParseVersionInformation();
+
+    return ready_;
 }
 
 }

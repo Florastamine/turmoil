@@ -23,9 +23,13 @@ enum class OSVersion {
 
 struct OSVersionInformation {
 private:
+    bool ready_ = false;
     OSVersion version_ = OSVersion::NT_UNIDENTIFIED;
     uint32_t build_number_ = 0;
     std::string version_string_ = {};
+    std::string product_type_ = {};
+
+    bool ParseVersionInformation();
 
 public:
     OSVersionInformation() {}
@@ -33,7 +37,9 @@ public:
     uint32_t GetBuildNumber() const { return build_number_; }
     OSVersion GetVersion() const { return version_; }
     const std::string &GetVersionAsString() const { return version_string_; }
+    const std::string &GetProductType() const { return product_type_; }
     
+    bool IsReady() const { return ready_; }
     bool Initialize();
 };
 
