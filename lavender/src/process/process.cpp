@@ -1,5 +1,6 @@
 // Licensed under GPLv2 or later until the library is deemed stable enough for general use, see LICENSE in the source tree.
 #include <nt.hpp>
+#include <os/version.hpp>
 #include <process/process.hpp>
 
 #if defined(_WIN32)
@@ -13,9 +14,9 @@ namespace process {
 
 using IsWow64Process2Ptr = BOOL (WINAPI *) (HANDLE, USHORT *, USHORT *);
 std::optional<bool> is_process_WOW64(const HANDLE process)
-{
+{   
     // IsWow64Process2() was introduced in NT 10 version 1511
-    if (platform::get_version_extended().value_or(platform::OSInformation()).GetBuildNumber() >= 1511) {
+    if (os::OSVersionInformation version; version.Initialize() && version.GetBuildNumber() >= 1511) {
         const HMODULE module = ::GetModuleHandle("kernel32.dll");
         if (module != nullptr)
         {
