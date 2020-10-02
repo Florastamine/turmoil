@@ -2,14 +2,15 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
 #include <string>
+#include <optional>
+#include <type_traits>
 
 namespace lavender {
 
 namespace os {
 
-enum class OSVersion {
+enum class OSVersion : uint8_t {
     NT_UNIDENTIFIED,
     NT_2000,
     NT_XP,
@@ -38,6 +39,14 @@ public:
     OSVersion GetVersion() const { return version_; }
     const std::string &GetVersionAsString() const { return version_string_; }
     const std::string &GetProductType() const { return product_type_; }
+
+    bool Is2000OrHigher() const { return version_ >= OSVersion::NT_2000; }
+    bool IsXPOrHigher() const { return version_ >= OSVersion::NT_XP; }
+    bool IsVistaOrHigher() const { return version_ >= OSVersion::NT_VISTA_2008; }
+    bool Is7OrHigher() const { return version_ >= OSVersion::NT_7_2008_R2; }
+    bool Is8OrHigher() const { return version_ >= OSVersion::NT_8_2012; }
+    bool Is81OrHigher() const { return version_ >= OSVersion::NT_8_1_2012_R2; }
+    bool Is10OrHigher() const { return version_ >= OSVersion::NT_10_2016_2019; }
     
     bool IsReady() const { return ready_; }
     bool Initialize();
