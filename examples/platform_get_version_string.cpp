@@ -1,8 +1,11 @@
 #include <iostream>
-#include <string>
-#include <nt.hpp>
+#include <os/version.hpp>
 
 int main(int, const char *[])
 {
-    std::cout << lavender::platform::get_version_string().value_or(std::string()) << '\n';
+    if (lavender::os::OSVersionInformation version; version.Initialize()) {
+        std::cout << "GetVersionAsString(): " << version.GetVersionAsString() << '\n';
+        std::cout << "GetProductType(): " << version.GetProductType() << '\n';
+        std::cout << "GetBuildNumber(): " << version.GetBuildNumber() << '\n';        
+    }
 }
