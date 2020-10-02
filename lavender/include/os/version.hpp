@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <string>
 #include <optional>
-#include <type_traits>
 
 namespace lavender {
 

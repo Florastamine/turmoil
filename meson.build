@@ -14,7 +14,8 @@ include_directories = [
 targets = {
     'platform_get_version_string' : [ 'examples/platform_get_version_string.cpp' ],
     'process_is_process_WOW64' : [ 'examples/process_is_process_WOW64.cpp' ],
-    'cpu' : [ 'examples/cpu.cpp' ]
+    'cpu' : [ 'examples/cpu.cpp' ],
+    'os' : [ 'examples/os.cpp' ]
 }
 
 foreach target, source : targets
