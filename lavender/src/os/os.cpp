@@ -454,12 +454,14 @@ void SystemSnapshot::AddServiceEntry(const ServiceSnapshot &snapshot)
 
 bool SystemSnapshot::ReserveProcessEntries()
 {
+    // For now the return value is just a placeholder, as we'd actually like to verify if the buffer has successfully been reserved to contain all possible entries.
     processes_.clear();
     return true;
 }
 
 bool SystemSnapshot::ReserveServiceEntries()
 {
+    // Ditto!
     services_.clear();
     return true;
 }
