@@ -31,16 +31,17 @@ int main(int, const char *[])
     using std::flush;
     
     if (lavender::os::OSInformation os; os.Initialize()) {
-        cout << "IsGenuine(): " << os.IsGenuine() << n;
-        cout << "GetUserName(): " << os.GetUserName() << n;
-        wcout << "GetLocale(): " << os.GetLocale() << n;
-
         if (const lavender::os::OSVersionInformation &version = os.GetVersionInformation(); version.IsReady()) {
             cout << "GetBuildNumber(): " << version.GetBuildNumber() << n;
             cout << "GetVersion(): " << magic_enum::enum_name(version.GetVersion()) << n;
             cout << "GetVersionAsString(): " << version.GetVersionAsString() << n;
             cout << "GetProductType(): " << version.GetProductType() << n;
         }
+
+        cout << "GetArchitecture(): " << os.GetArchitecture() << "-bit" << n;
+        wcout << "GetLocale(): " << os.GetLocale() << n;
+
+        cout << "GetUserName(): " << os.GetUserName() << n;
 
         cout << "GetComputerName():\n";
         for (const auto &name : os.GetComputerName())
@@ -51,6 +52,7 @@ int main(int, const char *[])
             cout << ' ' << ' ' << str.first << " = " << str.second << n;
         
         cout << "GetRegisteredProductKey(): " << os.GetRegisteredProductKey() << n;
+        cout << "IsGenuine(): " << os.IsGenuine() << n;
 
         if (os.TakeSnapshot(lavender::os::SnapshotType::Services | lavender::os::SnapshotType::Processes)) {
             const auto snapshot = os.GetSystemSnapshot();
@@ -68,6 +70,13 @@ int main(int, const char *[])
                 cout << n << n;
             }
         }
+        
+        cout << "GetPaths(): " << n;
+        for (const auto &path : os.GetPaths()) {
+            cout << magic_enum::enum_name(path.first) << " = ";
+            wcout << path.second << n;
+        }
+        cout << n;
 
         cout << flush;
     }

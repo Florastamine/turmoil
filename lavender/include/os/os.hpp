@@ -133,19 +133,46 @@ public:
     void AddProcessEntry(const ProcessSnapshot &snapshot);
     void AddServiceEntry(const ServiceSnapshot &snapshot);
 };
-    
+
+enum class PathType : uint16_t {
+    Windows,
+    ProgramData,
+    Temporary,
+    ProgramFiles32,
+    ProgramFiles64,
+    CommonFiles32,
+    CommonFiles64,
+    UserProfile,
+    UserStartup,
+    UserStartMenu,
+    UserDesktop,
+    UserDocuments,
+    UserDownloads,
+    UserWallpaper,
+    UserAppData,
+    UserAppDataLow,
+    UserAppDataRoaming,
+    UserAppDataDesktop, // Introduced in NT 10 1709
+};
+
 class OSInformation {
 private:
     typedef const std::string & string_cref;
     typedef const std::wstring & wstring_cref;
+
     typedef const std::unordered_map<std::string, std::string> & map_string_cref;
     typedef std::unordered_map<std::string, std::string> map_string;
+
+    typedef const std::unordered_map<PathType, std::wstring> & folder_path_map_cref;
+    typedef std::unordered_map<PathType, std::wstring> folder_path_map;
 
     bool ready_ = false;
     bool genuine_ = false;
 
+    uint16_t architecture_ = 0;
     map_string computer_names_ = {};
     map_string environment_strings_ = {};
+    folder_path_map paths_ = {};
     std::string user_name_ = {};
     std::wstring locale_ = {};
     OSVersionInformation version_information_;
@@ -157,6 +184,12 @@ private:
     bool ParseUserName();
     bool ParseGenuine();
     bool ParseEnvironmentStrings();
+    bool ParseArchitecture();
+    bool ParseFixedPaths();
+
+    bool ParseSHGetKnownFolderPathDirectory();
+    bool ParseGetTempPathWDirectory();
+    bool ParseSystemParametersInfoWDirectory();
 
 public:
     OSInformation() {}
@@ -164,17 +197,22 @@ public:
     bool IsReady() const { return ready_; }
     bool Initialize();
 
-    bool IsGenuine() const { return genuine_; }
-    const OSVersionInformation &GetVersionInformation() const { return version_information_; }
-    map_string_cref GetComputerName() const { return computer_names_; }
-    map_string_cref GetEnvironmentStrings() const { return environment_strings_; }
-    string_cref GetUserName() const { return user_name_; }
-    wstring_cref GetLocale() const { return locale_; }
-    const SystemSnapshot &GetSystemSnapshot() const { return snapshot_; }
-
     std::string GetRegisteredProductKey() const;
+    bool IsGenuine() const { return genuine_; }
+
+    uint16_t GetArchitecture() const { return architecture_; }
+    wstring_cref GetLocale() const { return locale_; }
+    string_cref GetUserName() const { return user_name_; }
+    map_string_cref GetComputerName() const { return computer_names_; }
+    const OSVersionInformation &GetVersionInformation() const { return version_information_; }
 
     bool TakeSnapshot(const SnapshotType &flags = SnapshotType::Everything);
+    const SystemSnapshot &GetSystemSnapshot() const { return snapshot_; }
+
+    map_string_cref GetEnvironmentStrings() const { return environment_strings_; }
+    bool HasEnvironmentString(const std::string &v) const { return environment_strings_.find(v) != environment_strings_.end(); }
+
+    folder_path_map_cref GetPaths() const { return paths_; }
 };
 
 }

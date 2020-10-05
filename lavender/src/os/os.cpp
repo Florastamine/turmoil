@@ -1,6 +1,7 @@
 // Licensed under GPLv2 or later until the library is deemed stable enough for general use, see LICENSE in the source tree.
 #include <string>
 #include <vector>
+#include <functional>
 #include <unordered_map>
 
 #include <helpers.hpp>
@@ -15,7 +16,10 @@
     #include <ntstatus.h>
     #include <lmcons.h>
     #include <tlhelp32.h>
+    #include <shlobj.h> // It is <shlobj.h> that has ::SHGetKnownFolderPath(), and not <shlobj_core.h>
 #endif
+
+#include <third_party/magic_enum.hpp>
 
 namespace lavender {
 
@@ -30,12 +34,112 @@ bool OSInformation::Initialize()
             ParseComputerName() &&
             ParseEnvironmentStrings() &&
             ParseLocale() &&
+            ParseArchitecture() &&
+            ParseFixedPaths() &&
             TakeSnapshot(SnapshotType::Everything);
         
         genuine_ = ParseGenuine();
     }
 
     return ready_;
+}
+
+bool OSInformation::ParseArchitecture()
+{
+    if (environment_strings_.empty())
+        ParseEnvironmentStrings();
+    
+    architecture_ = (uint16_t) (HasEnvironmentString("ProgramW6432") ? 64u : 32u);
+
+    return true;
+}
+
+static std::optional<std::wstring> GetInternalFolderPath(const ::KNOWNFOLDERID &folder)
+{
+    ::PWSTR path_string = nullptr;
+    
+    if (::SHGetKnownFolderPath(folder, KF_FLAG_NO_ALIAS, NULL, &path_string) == S_OK) {
+        std::wstring path(path_string);
+        ::CoTaskMemFree(path_string);
+
+        return path;
+    }
+
+    return std::nullopt;
+}
+
+bool OSInformation::ParseSHGetKnownFolderPathDirectory()
+{
+    struct folder_path_hasher {
+    public:
+        std::size_t operator()(const ::KNOWNFOLDERID GUID) const noexcept
+        {
+            return  std::hash<decltype(GUID.Data1)>{}(GUID.Data1)
+                  + std::hash<decltype(GUID.Data2)>{}(GUID.Data2)
+                  + std::hash<decltype(GUID.Data3)>{}(GUID.Data3)
+                  + std::hash<std::string>{}(std::string(GUID.Data4, GUID.Data4 + sizeof(GUID.Data4) / sizeof(GUID.Data4[0])));
+        }
+    };
+
+    static const std::unordered_map<::KNOWNFOLDERID, PathType, folder_path_hasher> paths = {
+        {::FOLDERID_Windows, PathType::Windows},
+        {::FOLDERID_ProgramData, PathType::ProgramData},
+        // PathType::Temporary is queried using a separate API call.
+        {::FOLDERID_ProgramFilesX86, PathType::ProgramFiles32},
+        {::FOLDERID_ProgramFilesX64, PathType::ProgramFiles64},
+        {::FOLDERID_ProgramFilesCommonX86, PathType::CommonFiles32},
+        {::FOLDERID_ProgramFilesCommonX64, PathType::CommonFiles64},
+        {::FOLDERID_Profile, PathType::UserProfile},
+        {::FOLDERID_Startup, PathType::UserStartup},
+        {::FOLDERID_StartMenu, PathType::UserStartMenu},
+        {::FOLDERID_Desktop, PathType::UserDesktop},
+        {::FOLDERID_Documents, PathType::UserDocuments},
+        {::FOLDERID_Downloads, PathType::UserDownloads},
+        {::FOLDERID_LocalAppData, PathType::UserAppData},
+        {::FOLDERID_LocalAppDataLow, PathType::UserAppDataLow},
+        {::FOLDERID_RoamingAppData, PathType::UserAppDataRoaming},
+        {::FOLDERID_AppDataDesktop, PathType::UserAppDataDesktop},
+    };
+
+    for (const auto &[GUID, type] : paths) {
+        paths_[type] = std::wstring();
+
+        if (const auto path = GetInternalFolderPath(GUID); path.has_value())
+            paths_[type] = *path + L'\\';        
+    }
+
+    return true;
+}
+
+bool OSInformation::ParseGetTempPathWDirectory()
+{
+    wchar_t path[MAX_PATH + 1];
+    const ::DWORD path_size = MAX_PATH + 1;
+
+    if (::GetTempPathW(path_size, path)) {
+        paths_[PathType::Temporary] = std::wstring(path);
+        return true;
+    }
+
+    return false;
+}
+
+bool OSInformation::ParseSystemParametersInfoWDirectory()
+{
+    wchar_t path[MAX_PATH + 1];
+    if (::SystemParametersInfoW(SPI_GETDESKWALLPAPER, ::UINT(MAX_PATH + 1), (LPVOID) path, 0)) {
+        paths_[PathType::UserWallpaper] = std::wstring(path);
+        return true;
+    }
+    
+    return false;
+}
+
+bool OSInformation::ParseFixedPaths()
+{
+    return ParseSHGetKnownFolderPathDirectory() &&
+           ParseSystemParametersInfoWDirectory() &&
+           ParseGetTempPathWDirectory();
 }
 
 bool OSInformation::ParseEnvironmentStrings()
