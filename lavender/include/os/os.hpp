@@ -45,6 +45,7 @@ private:
 
     bool InitializeProcessEntryData(const ::PROCESSENTRY32 &process);
     bool InitializeAssociatedImageData();
+
 public:
     const std::vector<ProcessModuleSnapshot> &GetModules() const { return modules_; }
     const std::string &GetName() const { return name_; }
@@ -121,6 +122,7 @@ struct SystemSnapshot {
 private:
     std::vector<ProcessSnapshot> processes_ = {};
     std::vector<ServiceSnapshot> services_ = {};
+
 public:
     const std::vector<ProcessSnapshot> &GetProcesses() const { return processes_; }
     const std::vector<ServiceSnapshot> &GetServices() const { return services_; }
@@ -134,11 +136,16 @@ public:
     
 class OSInformation {
 private:
+    typedef const std::string & string_cref;
+    typedef const std::wstring & wstring_cref;
+    typedef const std::unordered_map<std::string, std::string> & map_string_cref;
+    typedef std::unordered_map<std::string, std::string> map_string;
+
     bool ready_ = false;
     bool genuine_ = false;
 
-    std::unordered_map<std::string, std::string> computer_names_ = {};
-    std::unordered_map<std::string, std::string> environment_strings_ = {};
+    map_string computer_names_ = {};
+    map_string environment_strings_ = {};
     std::string user_name_ = {};
     std::wstring locale_ = {};
     OSVersionInformation version_information_;
@@ -150,6 +157,7 @@ private:
     bool ParseUserName();
     bool ParseGenuine();
     bool ParseEnvironmentStrings();
+
 public:
     OSInformation() {}
 
@@ -158,10 +166,10 @@ public:
 
     bool IsGenuine() const { return genuine_; }
     const OSVersionInformation &GetVersionInformation() const { return version_information_; }
-    const std::unordered_map<std::string, std::string> &GetComputerName() const { return computer_names_; }
-    const std::unordered_map<std::string, std::string> &GetEnvironmentStrings() const { return environment_strings_; }
-    const std::string &GetUserName() const { return user_name_; }
-    const std::wstring &GetLocale() const { return locale_; }
+    map_string_cref GetComputerName() const { return computer_names_; }
+    map_string_cref GetEnvironmentStrings() const { return environment_strings_; }
+    string_cref GetUserName() const { return user_name_; }
+    wstring_cref GetLocale() const { return locale_; }
     const SystemSnapshot &GetSystemSnapshot() const { return snapshot_; }
 
     std::string GetRegisteredProductKey() const;
