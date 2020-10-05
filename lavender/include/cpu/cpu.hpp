@@ -8,7 +8,6 @@
 #include <compiler.hpp>
 
 #include <stdint.h>
-
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -92,15 +91,13 @@ public:
 
 class CPUInformation {
 private:
+    typedef const std::string & string_cref;
+
     bool ready_ = false;
 
     uint32_t cpus_ = 0;
     uint32_t logical_cpus_ = 0;
     uint16_t architecture_ = PROCESSOR_ARCHITECTURE_UNKNOWN;
-    std::string architecture_string_ = {};
-    std::string cpu_brand_ID_ = {};
-    std::string cpu_brand_name_ = {};
-
     uint32_t stepping_ = 0;
     uint32_t model_ = 0;
     uint32_t family_ = 0;
@@ -108,6 +105,10 @@ private:
     uint32_t model_extended_ = 0;
     uint32_t family_extended_ = 0;
     uint32_t clflush_size_ = 0;
+
+    std::string architecture_string_ = {};
+    std::string cpu_brand_ID_ = {};
+    std::string cpu_brand_name_ = {};
 
     std::vector<uint64_t> frequencies_ = {};
     std::unordered_map<CPUCapabilities, bool> capabilities_ = {};
@@ -132,9 +133,6 @@ public:
 
     uint32_t GetCPUCount() const { return cpus_; }
     uint32_t GetLogicalCPUCount() const { return logical_cpus_; }
-
-    uint16_t GetArchitecture() const { return architecture_; }
-
     uint32_t GetSteppingID() const { return stepping_; }
     uint32_t GetModel() const { return model_; }
     uint32_t GetFamilyID() const { return family_; }
@@ -143,14 +141,15 @@ public:
     uint32_t GetFamilyIDExtended() const { return family_extended_; }
     uint32_t GetCLFLUSHLineSize() const { return clflush_size_; }
 
-    CPUVendorType GetVendorType() const { return vendor_type_; }
+    uint16_t GetArchitecture() const { return architecture_; }
 
     bool HasFeature(const CPUCapabilities &capability) const { return capabilities_.find(capability) != capabilities_.end(); }
 
-    const std::string &GetBrandID() const { return cpu_brand_ID_; }
-    const std::string &GetBrandName() const { return cpu_brand_name_; }
+    CPUVendorType GetVendorType() const { return vendor_type_; }
 
-    const std::string &GetArchitectureAsString() const { return architecture_string_; }
+    string_cref GetBrandID() const { return cpu_brand_ID_; }
+    string_cref GetBrandName() const { return cpu_brand_name_; }
+    string_cref GetArchitectureAsString() const { return architecture_string_; }
 
     const std::vector<uint64_t> &GetFrequencyInformation() const { return frequencies_; }
 
@@ -159,7 +158,7 @@ public:
     const std::vector<CPUCacheInformation> &GetCacheInformation() const { return cache_; };
 
     bool Initialize();
-    std::vector<uint64_t> ForceRefreshCPUFrequency();
+    void ForceRefreshCPUFrequency();
 };
 
 }

@@ -149,7 +149,7 @@ bool CPUInformation::ParseCPUIDInformation()
 
     // For performance purposes, CPU frequencies will only be calculated once, also due to restrictions of user-mode programs, only 
     // the base frequency can be retrieved.
-    frequencies_ = ForceRefreshCPUFrequency();
+    ForceRefreshCPUFrequency();
 
     // Query for processor's capabilities
     for (const auto &capability : magic_enum::enum_values<CPUCapabilities>()) {
@@ -317,23 +317,21 @@ bool CPUInformation::Initialize()
     return ready_;
 }
 
-std::vector<uint64_t> CPUInformation::ForceRefreshCPUFrequency()
+void CPUInformation::ForceRefreshCPUFrequency()
 {   
-    const auto buffer_size = sizeof(PROCESSOR_POWER_INFORMATION) * cpus_;
+    const auto buffer_size = sizeof(::PROCESSOR_POWER_INFORMATION) * cpus_;
 
-    std::vector<BYTE> buffer(buffer_size);
-    std::vector<uint64_t> r(0);
+    std::vector<::BYTE> buffer(buffer_size);
+    frequencies_.clear();
 
-    if (::CallNtPowerInformation(POWER_INFORMATION_LEVEL::ProcessorInformation, nullptr, 0, &buffer[0], buffer_size) == STATUS_SUCCESS)
+    if (::CallNtPowerInformation(::POWER_INFORMATION_LEVEL::ProcessorInformation, nullptr, 0, &buffer[0], buffer_size) == STATUS_SUCCESS)
     {
-        PPROCESSOR_POWER_INFORMATION ptr = (PPROCESSOR_POWER_INFORMATION) &buffer[0];
+        auto ptr = (::PPROCESSOR_POWER_INFORMATION) &buffer[0];
         for (auto i = 0; i < cpus_; ++i) {
-            r.push_back(ptr->CurrentMhz);
+            frequencies_.push_back(ptr->CurrentMhz);
             ++ptr;
         }
     }
-
-    return r;
 }
 
 }
