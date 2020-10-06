@@ -30,7 +30,7 @@ bool OSInformation::Initialize()
     if (!ready_) {
         ready_ = 
             ParseOSVersion() &&
-            ParseUserName() &&
+            ParseUserInformation() &&
             ParseComputerName() &&
             ParseEnvironmentStrings() &&
             ParseLocale() &&
@@ -154,19 +154,6 @@ bool OSInformation::ParseEnvironmentStrings()
     return true;
 }
 
-bool OSInformation::ParseUserName()
-{
-    char buffer[UNLEN + 1];
-    ::DWORD buffer_size = sizeof(buffer);
-
-    if (::GetUserNameA(buffer, &buffer_size)) {
-        user_name_ = std::string(buffer);
-        return true;
-    }
-
-    return false;
-}
-
 bool OSInformation::ParseLocale()
 {
     wchar_t buffer[LOCALE_NAME_MAX_LENGTH];
@@ -205,6 +192,11 @@ bool OSInformation::ParseComputerName()
     }
 
     return true;
+}
+
+bool OSInformation::ParseUserInformation()
+{
+    return user_information_.Initialize();
 }
 
 bool OSInformation::ParseOSVersion()
