@@ -71,6 +71,18 @@ int main(int, const char *[])
                 }
                 cout << n << n;
             }
+
+            for (const auto &user : snapshot.GetUsers()) {
+                wcout << L"User: " << user.GetName() << n;
+                wcout << L"  IsActive() = " << user.IsActive() << n;
+                wcout << L"  GetFullName() = " << user.GetFullName() << n;
+                wcout << L"  GetDescription() = " << user.GetDescription() << n;
+                wcout << L"  GetRelativeID() = " << user.GetRelativeID() << n;
+                wcout << L"  GetSID() = " << user.GetSID() << n;
+                cout << "  GetPrivilege() = " << magic_enum::enum_name(user.GetPrivilege()) << n;
+                cout << "  GetLastLoginTimeAsString() = " << user.GetLastLoginTimeAsString() << n;
+                cout << "  GetLastLogoutTimeAsString() = " << user.GetLastLogoutTimeAsString() << n;
+            }
         }
         
         cout << "GetPaths(): " << n;

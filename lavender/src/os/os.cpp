@@ -1,4 +1,5 @@
 // Licensed under GPLv2 or later until the library is deemed stable enough for general use, see LICENSE in the source tree.
+#include <ctime>
 #include <string>
 #include <vector>
 #include <functional>
@@ -14,9 +15,10 @@
     #include <slpublic.h>
     #include <rpcdce.h>
     #include <ntstatus.h>
-    #include <lmcons.h>
+    #include <lm.h>
     #include <tlhelp32.h>
     #include <shlobj.h> // It is <shlobj.h> that has ::SHGetKnownFolderPath(), and not <shlobj_core.h>
+    #include <sddl.h>
 #endif
 
 #include <third_party/magic_enum.hpp>
@@ -223,7 +225,7 @@ bool OSInformation::ParseGenuine()
     return false;
 }
 
-static bool TakeServicesSnapshot(SystemSnapshot &os)
+bool TakeServicesSnapshot(SystemSnapshot &os)
 {
     bool r = false;
 
@@ -276,9 +278,9 @@ static bool TakeServicesSnapshot(SystemSnapshot &os)
                             for(::DWORD i = 0; i < count; ++i)
                             {
                                 if (ServiceSnapshot service; service.Initialize(services[i]))
-                                    os.AddServiceEntry(service);
+                                    os.services_.push_back(service);
                             }
-                            r = true;   
+                            r = true;
                         }
                     }
                     delete [] services;
@@ -298,7 +300,7 @@ static bool TakeServicesSnapshot(SystemSnapshot &os)
     return r;
 }
 
-static bool TakeProcessesSnapshot(SystemSnapshot &os)
+bool TakeProcessesSnapshot(SystemSnapshot &os)
 {
     ::HANDLE snapshot = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0); // A value of 0 passed to th32ProcessID indicates the calling process ID 
                                                                            // to be included with the snapshot.
@@ -314,7 +316,7 @@ static bool TakeProcessesSnapshot(SystemSnapshot &os)
         if (os.ReserveProcessEntries()) {
             do {
                 if (ProcessSnapshot process; process.Initialize(process_entry))
-                    os.AddProcessEntry(process);
+                    os.processes_.push_back(process);
                 
             } while(::Process32Next(snapshot, &process_entry));
 
@@ -326,6 +328,128 @@ static bool TakeProcessesSnapshot(SystemSnapshot &os)
     return false;
 }
 
+static std::wstring GetCurrentLoggedInUserName()
+{
+   std::wstring s;
+    wchar_t buffer[UNLEN + 1];
+    ::DWORD buffer_size = sizeof(buffer);
+
+    if (::GetUserNameW(buffer, &buffer_size)) {
+        s = std::wstring(buffer);
+    }
+    
+    return s;
+}
+
+std::string UserSnapshot::GetLastLoginTimeAsString() const
+{
+   std::string s(std::ctime(&time_last_login_));
+   const std::size_t size = s.size();
+
+   // std::ctime() leaves a stray '\n' at the end of the returned string.
+   if (s[size - 1] == '\n')
+      s.erase(size - 1);
+   
+   return s;
+}
+
+std::string UserSnapshot::GetLastLogoutTimeAsString() const
+{
+   std::string s(std::ctime(&time_last_logout_));
+   const std::size_t size = s.size();
+
+   if (s[size - 1] == '\n')
+      s.erase(size - 1);
+   
+   return s;
+}
+
+UserPrivilegeType UserSnapshot::GetPrivilegeType(const uint32_t privilege)
+{
+   switch (privilege) {
+      case USER_PRIV_GUEST:
+         return UserPrivilegeType::Guest;
+      case USER_PRIV_USER:
+         return UserPrivilegeType::User;
+      case USER_PRIV_ADMIN:
+         return UserPrivilegeType::Administrator;
+   }
+
+   return UserPrivilegeType::Reserved;
+}
+
+bool UserSnapshot::Initialize(const ::USER_INFO_3 *user)
+{
+   if (user != nullptr) {
+      name_ = user->usri3_name;
+      full_name_ = user->usri3_full_name;
+      description_ = user->usri3_comment;
+      login_count_ = user->usri3_num_logons;
+      privilege_type_ = GetPrivilegeType(user->usri3_priv);
+      time_last_login_ = user->usri3_last_logon;
+      relative_ID_ = user->usri3_user_id;
+
+      // According to MSDN documentation, the logout timestamp field (usri3_last_logoff) is currently left unused, nor even USER_INFO_4.
+      time_last_logout_ = user->usri3_last_logoff;
+      
+      // Getting the user's SID requires access to USER_INFO_4, which ::NetUserEnum() doesn't support. Query ::NetUserGetInfo() for USER_INFO_4,
+      // the field which was once containing the user's relative ID (usri3_user_id) is now occupied by their PSID.
+      LPUSER_INFO_4 info = nullptr;
+      if (::NetUserGetInfo(nullptr, name_.c_str(), 4, (LPBYTE *) &info) == NERR_Success) {
+         if (::LPWSTR buffer = nullptr; ::ConvertSidToStringSidW(info->usri4_user_sid, &buffer) != 0) {
+            SID_ = std::wstring(buffer);
+            ::LocalFree(buffer);
+         }
+      }
+
+      active_ = name_ == GetCurrentLoggedInUserName();
+      
+      return true;
+   }
+
+   return false;
+}
+
+bool TakeUsersSnapshot(SystemSnapshot &os)
+{
+    ::LPUSER_INFO_3 buffer = nullptr;
+    ::NET_API_STATUS status;
+    ::DWORD total = 0;
+    ::DWORD handler = 0;
+
+    do {
+        ::DWORD count = 0;
+        status = ::NetUserEnum(nullptr, 3, FILTER_NORMAL_ACCOUNT, (LPBYTE*) &buffer, MAX_PREFERRED_LENGTH, &count, &total, &handler);
+        if ((status == NERR_Success) || (status == ERROR_MORE_DATA))
+        {
+            if (auto ptr = buffer; ptr != nullptr)
+            {
+                for (auto i = 0; i < count; ++i)
+                {
+                    if (ptr != nullptr)
+                    {
+                        if (UserSnapshot user; user.Initialize(ptr))
+                            os.users_.push_back(user);
+                        
+                        ++ptr;
+                    }
+                }
+            }
+        }
+        
+        if (buffer != nullptr) {
+            ::NetApiBufferFree(buffer);
+            buffer = nullptr;
+        }
+    }
+    while (status == ERROR_MORE_DATA);
+
+    if (buffer != nullptr)
+        ::NetApiBufferFree(buffer);
+
+    return true;
+}
+
 bool OSInformation::TakeSnapshot(const SnapshotType &flags)
 {
     if ((flags & SnapshotType::Processes) && TakeProcessesSnapshot(snapshot_)) {
@@ -334,6 +458,10 @@ bool OSInformation::TakeSnapshot(const SnapshotType &flags)
     
     if ((flags & SnapshotType::Services) && TakeServicesSnapshot(snapshot_)) {
         std::printf("services count: %i\n", snapshot_.GetServices().size());
+    }
+
+    if ((flags & SnapshotType::Users) && TakeUsersSnapshot(snapshot_)) {
+        std::printf("users count: %i\n", snapshot_.GetUsers().size());
     }
     
     return true;
@@ -484,7 +612,8 @@ bool ServiceSnapshot::Initialize(const ::ENUM_SERVICE_STATUS &service)
             break;
     }
 
-    return true;
+    ready_ = true;
+    return ready_;
 }
 
 bool ProcessSnapshot::Initialize(const ::PROCESSENTRY32 &process)
@@ -536,16 +665,6 @@ bool ProcessSnapshot::InitializeProcessEntryData(const ::PROCESSENTRY32 &entry)
     }
     
     return true;
-}
-
-void SystemSnapshot::AddProcessEntry(const ProcessSnapshot &snapshot)
-{
-    processes_.push_back(snapshot);
-}
-
-void SystemSnapshot::AddServiceEntry(const ServiceSnapshot &snapshot)
-{
-    services_.push_back(snapshot);
 }
 
 bool SystemSnapshot::ReserveProcessEntries()

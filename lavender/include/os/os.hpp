@@ -9,7 +9,8 @@
 
 #if defined(_WIN32)
     #include <windows.h>
-    #include <tlhelp32.h>
+    #include <tlhelp32.h> // ::PROCESSENTRY32
+    #include <lm.h> // ::USER_INFO_3
 #endif
 
 namespace lavender {
@@ -91,18 +92,66 @@ private:
 public:
     ~ServiceSnapshot() = default;
     ServiceSnapshot() = default;
-
-    bool Initialize(const ::ENUM_SERVICE_STATUS &service);
     
     const std::string &GetName() const { return name_; }
     ServiceType GetType() const { return type_; }
     ServiceStatus GetStatus() const { return status_; }
+
+    bool IsReady() const { return ready_; }
+    bool Initialize(const ::ENUM_SERVICE_STATUS &service);
+};
+
+enum class UserPrivilegeType {
+   Reserved,
+   Guest,
+   User,
+   Administrator
+};
+
+class UserSnapshot {
+private:
+   typedef const std::wstring & wstring_cref;
+   std::wstring name_ = {};
+   std::wstring full_name_ = {};
+   std::wstring description_ = {};
+   std::wstring SID_ = {};
+   uint32_t login_count_ = 0;
+   uint32_t relative_ID_ = 0;
+   UserPrivilegeType privilege_type_ = UserPrivilegeType::Reserved;
+   time_t time_last_login_;
+   time_t time_last_logout_;
+   bool active_ = false;
+
+   UserPrivilegeType GetPrivilegeType(const uint32_t privilege);
+
+public:
+   wstring_cref GetName() const { return name_; }
+   wstring_cref GetFullName() const { return full_name_; }
+   wstring_cref GetDescription() const { return description_; }
+   UserPrivilegeType GetPrivilege() const { return privilege_type_; }
+   uint32_t GetLoginCount() const { return login_count_; }
+
+   time_t GetLastLoginTime() const { return time_last_login_; }
+   std::string GetLastLoginTimeAsString() const;
+   
+   time_t GetLastLogoutTime() const { return time_last_logout_; }
+   std::string GetLastLogoutTimeAsString() const;
+
+   uint32_t GetRelativeID() const { return relative_ID_; }
+
+   wstring_cref GetSID() const { return SID_; }
+
+   bool IsActive() const { return active_; }
+
+   UserSnapshot() {}
+   bool Initialize(const ::USER_INFO_3 *user);
 };
 
 enum class SnapshotType {
     Processes = 1 << 0,
     Services = 1 << 1,
-    Everything = Processes | Services
+    Users = 1 << 2,
+    Everything = Processes | Services | Users
 };
 
 template <typename E, typename = std::enable_if<std::is_enum<E>::value>>
@@ -119,20 +168,23 @@ auto operator&(const E &lhs, const E &rhs) -> bool
     return static_cast<typename std::underlying_type<E>::type>(lhs) & static_cast<typename std::underlying_type<E>::type>(rhs);
 }
 
-struct SystemSnapshot {
+class SystemSnapshot {
 private:
     std::vector<ProcessSnapshot> processes_ = {};
     std::vector<ServiceSnapshot> services_ = {};
+    std::vector<UserSnapshot> users_ = {};
+
+    friend bool TakeProcessesSnapshot(SystemSnapshot &os);
+    friend bool TakeServicesSnapshot(SystemSnapshot &os);
+    friend bool TakeUsersSnapshot(SystemSnapshot &os);
 
 public:
     const std::vector<ProcessSnapshot> &GetProcesses() const { return processes_; }
     const std::vector<ServiceSnapshot> &GetServices() const { return services_; }
+    const std::vector<UserSnapshot> &GetUsers() const { return users_; }
 
     bool ReserveProcessEntries();
     bool ReserveServiceEntries();
-
-    void AddProcessEntry(const ProcessSnapshot &snapshot);
-    void AddServiceEntry(const ServiceSnapshot &snapshot);
 };
 
 enum class PathType : uint16_t {
@@ -209,7 +261,6 @@ public:
 
     const OSVersionInformation &GetVersionInformation() const { return version_information_; }
     const user::UserInformation &GetUserInformation() const { return user_information_; }
-
     bool TakeSnapshot(const SnapshotType &flags = SnapshotType::Everything);
     const SystemSnapshot &GetSystemSnapshot() const { return snapshot_; }
 
