@@ -120,6 +120,7 @@ private:
    time_t time_last_login_;
    time_t time_last_logout_;
    bool active_ = false;
+   bool current_ = false;
 
    UserPrivilegeType GetPrivilegeType(const uint32_t privilege);
 
@@ -141,6 +142,7 @@ public:
    wstring_cref GetSID() const { return SID_; }
 
    bool IsActive() const { return active_; }
+   bool IsCurrentUser() const { return current_; }
 
    UserSnapshot() {}
    bool Initialize(const ::USER_INFO_3 *user);

@@ -382,6 +382,8 @@ bool UserSnapshot::Initialize(const ::USER_INFO_3 *user)
       privilege_type_ = GetPrivilegeType(user->usri3_priv);
       time_last_login_ = user->usri3_last_logon;
       relative_ID_ = user->usri3_user_id;
+      active_ = !(user->usri3_flags & UF_ACCOUNTDISABLE);
+      current_ = name_ == GetCurrentLoggedInUserName();
 
       // According to MSDN documentation, the logout timestamp field (usri3_last_logoff) is currently left unused, nor even USER_INFO_4.
       time_last_logout_ = user->usri3_last_logoff;
@@ -395,8 +397,6 @@ bool UserSnapshot::Initialize(const ::USER_INFO_3 *user)
             ::LocalFree(buffer);
          }
       }
-
-      active_ = name_ == GetCurrentLoggedInUserName();
       
       return true;
    }

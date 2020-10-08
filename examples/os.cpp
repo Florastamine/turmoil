@@ -71,6 +71,7 @@ int main(int, const char *[])
             for (const auto &user : snapshot.GetUsers()) {
                 wcout << L"User: " << user.GetName() << n;
                 wcout << L"  IsActive() = " << user.IsActive() << n;
+                wcout << L"  IsCurrentUser() = " << user.IsCurrentUser() << n;
                 wcout << L"  GetFullName() = " << user.GetFullName() << n;
                 wcout << L"  GetDescription() = " << user.GetDescription() << n;
                 wcout << L"  GetRelativeID() = " << user.GetRelativeID() << n;
