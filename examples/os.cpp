@@ -38,10 +38,6 @@ int main(int, const char *[])
             cout << "GetProductType(): " << version.GetProductType() << n;
         }
         
-        if (const lavender::os::user::UserInformation &user = os.GetUserInformation(); user.IsReady()) {
-            cout << "GetName(): " << user.GetName() << n;
-        }
-
         cout << "GetArchitecture(): " << os.GetArchitecture() << "-bit" << n;
         wcout << "GetLocale(): " << os.GetLocale() << n;
 

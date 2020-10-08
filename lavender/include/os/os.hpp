@@ -1,10 +1,9 @@
 // Licensed under GPLv2 or later until the library is deemed stable enough for general use, see LICENSE in the source tree.
 #pragma once
 
-#include <type_traits>
 #include <os/version.hpp>
-#include <os/user.hpp>
 
+#include <type_traits>
 #include <unordered_map>
 
 #if defined(_WIN32)
@@ -229,7 +228,6 @@ private:
     std::string user_name_ = {};
     std::wstring locale_ = {};
     OSVersionInformation version_information_;
-    user::UserInformation user_information_;
     SystemSnapshot snapshot_;
 
     bool ParseLocale();
@@ -239,7 +237,6 @@ private:
     bool ParseEnvironmentStrings();
     bool ParseArchitecture();
     bool ParseFixedPaths();
-    bool ParseUserInformation();
 
     bool ParseSHGetKnownFolderPathDirectory();
     bool ParseGetTempPathWDirectory();
@@ -260,7 +257,6 @@ public:
     map_string_cref GetComputerName() const { return computer_names_; }
 
     const OSVersionInformation &GetVersionInformation() const { return version_information_; }
-    const user::UserInformation &GetUserInformation() const { return user_information_; }
     bool TakeSnapshot(const SnapshotType &flags = SnapshotType::Everything);
     const SystemSnapshot &GetSystemSnapshot() const { return snapshot_; }
 

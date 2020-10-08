@@ -3,7 +3,6 @@
 source = [
     'src/nt.cpp',
     'src/os/version.cpp',
-    'src/os/user.cpp',
     'src/os/os.cpp',
     'src/cpu/cpu.cpp',
     'src/process/process.cpp'

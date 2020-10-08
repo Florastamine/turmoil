@@ -32,7 +32,6 @@ bool OSInformation::Initialize()
     if (!ready_) {
         ready_ = 
             ParseOSVersion() &&
-            ParseUserInformation() &&
             ParseComputerName() &&
             ParseEnvironmentStrings() &&
             ParseLocale() &&
@@ -194,11 +193,6 @@ bool OSInformation::ParseComputerName()
     }
 
     return true;
-}
-
-bool OSInformation::ParseUserInformation()
-{
-    return user_information_.Initialize();
 }
 
 bool OSInformation::ParseOSVersion()
