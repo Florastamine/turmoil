@@ -101,51 +101,52 @@ public:
 };
 
 enum class UserPrivilegeType {
-   Reserved,
-   Guest,
-   User,
-   Administrator
+    Reserved,
+    Guest,
+    User,
+    Administrator
 };
 
 class UserSnapshot {
 private:
-   typedef const std::wstring & wstring_cref;
-   std::wstring name_ = {};
-   std::wstring full_name_ = {};
-   std::wstring description_ = {};
-   std::wstring SID_ = {};
-   uint32_t login_count_ = 0;
-   uint32_t relative_ID_ = 0;
-   UserPrivilegeType privilege_type_ = UserPrivilegeType::Reserved;
-   time_t time_last_login_;
-   time_t time_last_logout_;
-   bool active_ = false;
-   bool current_ = false;
+    typedef const std::wstring & wstring_cref;
 
-   UserPrivilegeType GetPrivilegeType(const uint32_t privilege);
+    std::wstring name_ = {};
+    std::wstring full_name_ = {};
+    std::wstring description_ = {};
+    std::wstring SID_ = {};
+    uint32_t login_count_ = 0;
+    uint32_t relative_ID_ = 0;
+    UserPrivilegeType privilege_type_ = UserPrivilegeType::Reserved;
+    time_t time_last_login_;
+    time_t time_last_logout_;
+    bool active_ = false;
+    bool current_ = false;
+
+    UserPrivilegeType GetPrivilegeType(const uint32_t privilege);
 
 public:
-   wstring_cref GetName() const { return name_; }
-   wstring_cref GetFullName() const { return full_name_; }
-   wstring_cref GetDescription() const { return description_; }
-   UserPrivilegeType GetPrivilege() const { return privilege_type_; }
-   uint32_t GetLoginCount() const { return login_count_; }
+    wstring_cref GetName() const { return name_; }
+    wstring_cref GetFullName() const { return full_name_; }
+    wstring_cref GetDescription() const { return description_; }
+    UserPrivilegeType GetPrivilege() const { return privilege_type_; }
+    uint32_t GetLoginCount() const { return login_count_; }
 
-   time_t GetLastLoginTime() const { return time_last_login_; }
-   std::string GetLastLoginTimeAsString() const;
-   
-   time_t GetLastLogoutTime() const { return time_last_logout_; }
-   std::string GetLastLogoutTimeAsString() const;
+    time_t GetLastLoginTime() const { return time_last_login_; }
+    std::string GetLastLoginTimeAsString() const;
 
-   uint32_t GetRelativeID() const { return relative_ID_; }
+    time_t GetLastLogoutTime() const { return time_last_logout_; }
+    std::string GetLastLogoutTimeAsString() const;
 
-   wstring_cref GetSID() const { return SID_; }
+    uint32_t GetRelativeID() const { return relative_ID_; }
 
-   bool IsActive() const { return active_; }
-   bool IsCurrentUser() const { return current_; }
+    wstring_cref GetSID() const { return SID_; }
 
-   UserSnapshot() {}
-   bool Initialize(const ::USER_INFO_3 *user);
+    bool IsActive() const { return active_; }
+    bool IsCurrentUser() const { return current_; }
+
+    UserSnapshot() {}
+    bool Initialize(const ::USER_INFO_3 *user);
 };
 
 enum class SnapshotType {

@@ -324,7 +324,7 @@ bool TakeProcessesSnapshot(SystemSnapshot &os)
 
 static std::wstring GetCurrentLoggedInUserName()
 {
-   std::wstring s;
+    std::wstring s;
     wchar_t buffer[UNLEN + 1];
     ::DWORD buffer_size = sizeof(buffer);
 
@@ -337,71 +337,71 @@ static std::wstring GetCurrentLoggedInUserName()
 
 std::string UserSnapshot::GetLastLoginTimeAsString() const
 {
-   std::string s(std::ctime(&time_last_login_));
-   const std::size_t size = s.size();
+    std::string s(std::ctime(&time_last_login_));
+    const std::size_t size = s.size();
 
-   // std::ctime() leaves a stray '\n' at the end of the returned string.
-   if (s[size - 1] == '\n')
-      s.erase(size - 1);
-   
-   return s;
+    // std::ctime() leaves a stray '\n' at the end of the returned string.
+    if (s[size - 1] == '\n')
+        s.erase(size - 1);
+
+    return s;
 }
 
 std::string UserSnapshot::GetLastLogoutTimeAsString() const
 {
-   std::string s(std::ctime(&time_last_logout_));
-   const std::size_t size = s.size();
+    std::string s(std::ctime(&time_last_logout_));
+    const std::size_t size = s.size();
 
-   if (s[size - 1] == '\n')
-      s.erase(size - 1);
-   
-   return s;
+    if (s[size - 1] == '\n')
+        s.erase(size - 1);
+
+    return s;
 }
 
 UserPrivilegeType UserSnapshot::GetPrivilegeType(const uint32_t privilege)
 {
-   switch (privilege) {
-      case USER_PRIV_GUEST:
-         return UserPrivilegeType::Guest;
-      case USER_PRIV_USER:
-         return UserPrivilegeType::User;
-      case USER_PRIV_ADMIN:
-         return UserPrivilegeType::Administrator;
-   }
+    switch (privilege) {
+        case USER_PRIV_GUEST:
+            return UserPrivilegeType::Guest;
+        case USER_PRIV_USER:
+            return UserPrivilegeType::User;
+        case USER_PRIV_ADMIN:
+            return UserPrivilegeType::Administrator;
+    }
 
-   return UserPrivilegeType::Reserved;
+    return UserPrivilegeType::Reserved;
 }
 
 bool UserSnapshot::Initialize(const ::USER_INFO_3 *user)
 {
-   if (user != nullptr) {
-      name_ = user->usri3_name;
-      full_name_ = user->usri3_full_name;
-      description_ = user->usri3_comment;
-      login_count_ = user->usri3_num_logons;
-      privilege_type_ = GetPrivilegeType(user->usri3_priv);
-      time_last_login_ = user->usri3_last_logon;
-      relative_ID_ = user->usri3_user_id;
-      active_ = !(user->usri3_flags & UF_ACCOUNTDISABLE);
-      current_ = name_ == GetCurrentLoggedInUserName();
+    if (user != nullptr) {
+        name_ = user->usri3_name;
+        full_name_ = user->usri3_full_name;
+        description_ = user->usri3_comment;
+        login_count_ = user->usri3_num_logons;
+        privilege_type_ = GetPrivilegeType(user->usri3_priv);
+        time_last_login_ = user->usri3_last_logon;
+        relative_ID_ = user->usri3_user_id;
+        active_ = !(user->usri3_flags & UF_ACCOUNTDISABLE);
+        current_ = name_ == GetCurrentLoggedInUserName();
 
-      // According to MSDN documentation, the logout timestamp field (usri3_last_logoff) is currently left unused, nor even USER_INFO_4.
-      time_last_logout_ = user->usri3_last_logoff;
-      
-      // Getting the user's SID requires access to USER_INFO_4, which ::NetUserEnum() doesn't support. Query ::NetUserGetInfo() for USER_INFO_4,
-      // the field which was once containing the user's relative ID (usri3_user_id) is now occupied by their PSID.
-      LPUSER_INFO_4 info = nullptr;
-      if (::NetUserGetInfo(nullptr, name_.c_str(), 4, (LPBYTE *) &info) == NERR_Success) {
-         if (::LPWSTR buffer = nullptr; ::ConvertSidToStringSidW(info->usri4_user_sid, &buffer) != 0) {
-            SID_ = std::wstring(buffer);
-            ::LocalFree(buffer);
-         }
-      }
-      
-      return true;
-   }
+        // According to MSDN documentation, the logout timestamp field (usri3_last_logoff) is currently left unused, nor even USER_INFO_4.
+        time_last_logout_ = user->usri3_last_logoff;
 
-   return false;
+        // Getting the user's SID requires access to USER_INFO_4, which ::NetUserEnum() doesn't support. Query ::NetUserGetInfo() for USER_INFO_4,
+        // the field which was once containing the user's relative ID (usri3_user_id) is now occupied by their PSID.
+        LPUSER_INFO_4 info = nullptr;
+        if (::NetUserGetInfo(nullptr, name_.c_str(), 4, (LPBYTE *) &info) == NERR_Success) {
+            if (::LPWSTR buffer = nullptr; ::ConvertSidToStringSidW(info->usri4_user_sid, &buffer) != 0) {
+                SID_ = std::wstring(buffer);
+                ::LocalFree(buffer);
+            }
+        }
+
+        return true;
+    }
+
+    return false;
 }
 
 bool TakeUsersSnapshot(SystemSnapshot &os)
