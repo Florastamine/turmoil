@@ -418,8 +418,9 @@ bool UserSnapshot::Initialize(const ::USER_INFO_3 *user)
         // the field which was once containing the user's relative ID (usri3_user_id) is now occupied by their PSID.
         LPUSER_INFO_4 info = nullptr;
         if (::NetUserGetInfo(nullptr, name_.c_str(), 4, (LPBYTE *) &info) == NERR_Success) {
-            if (::LPWSTR buffer = nullptr; ::ConvertSidToStringSidW(info->usri4_user_sid, &buffer) != 0) {
-                SID_ = std::wstring(buffer);
+            PSID_ = info->usri4_user_sid;
+            if (::LPSTR buffer = nullptr; ::ConvertSidToStringSidA(info->usri4_user_sid, &buffer) != 0) {
+                SID_ = std::string(buffer);
                 ::LocalFree(buffer);
             }
         }
@@ -472,16 +473,16 @@ bool TakeUsersSnapshot(SystemSnapshot &os)
 
 bool OSInformation::TakeSnapshot(const SnapshotType &flags)
 {
-    if ((flags & SnapshotType::Processes) && TakeProcessesSnapshot(snapshot_)) {
-        std::printf("processes count: %i\n", snapshot_.GetProcesses().size());
+    if ((flags & SnapshotType::Processes)) {
+        TakeProcessesSnapshot(snapshot_);
     }
     
-    if ((flags & SnapshotType::Services) && TakeServicesSnapshot(snapshot_)) {
-        std::printf("services count: %i\n", snapshot_.GetServices().size());
+    if ((flags & SnapshotType::Services)) {
+        TakeServicesSnapshot(snapshot_);
     }
 
-    if ((flags & SnapshotType::Users) && TakeUsersSnapshot(snapshot_)) {
-        std::printf("users count: %i\n", snapshot_.GetUsers().size());
+    if ((flags & SnapshotType::Users)) {
+        TakeUsersSnapshot(snapshot_);
     }
     
     return true;
@@ -726,6 +727,32 @@ bool ProcessSnapshot::InitializeProcessEntryData(const ::PROCESSENTRY32 &entry)
 
         // Query for priority class
         priority_ = ::GetPriorityClass(process);
+
+        // Query for owner
+        if (::HANDLE token = nullptr; ::OpenProcessToken(process, TOKEN_READ, &token) != 0) {
+            ::TOKEN_USER buffer = {0};
+            ::DWORD length = 0;
+            bool flag = false;
+
+            if (::GetTokenInformation(token, TOKEN_INFORMATION_CLASS::TokenUser, (::LPVOID) &buffer, sizeof(::TOKEN_USER), &length) == 0) {   
+                if (::GetLastError() == ERROR_INSUFFICIENT_BUFFER &&
+                    ::GetTokenInformation(token, TOKEN_INFORMATION_CLASS::TokenUser, (::LPVOID) &buffer, length, &length) != 0) {
+                    flag = true;
+                }
+            }
+            else {
+                flag = true;
+            }
+
+            if (flag) {
+                if (::LPSTR owner = nullptr; ::ConvertSidToStringSidA(buffer.User.Sid, &owner) != 0) {
+                    owner_ = std::string(owner);
+                    ::LocalFree(owner);
+                }
+            }
+            
+            ::CloseHandle(token);
+        }
         
         ::CloseHandle(process);
     }

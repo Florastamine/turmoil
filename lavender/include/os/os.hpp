@@ -66,8 +66,12 @@ public:
 
 class ProcessSnapshot {
 private:
+    typedef const std::string & string_cref;
+    typedef const std::wstring & wstring_cref;
+
     std::vector<ProcessModuleSnapshot> modules_;
     std::string name_;
+    std::string owner_;
     uint32_t process_ID_;
     uint32_t parent_process_ID_;
     uint32_t threads_;
@@ -80,7 +84,8 @@ private:
 
 public:
     const std::vector<ProcessModuleSnapshot> &GetModules() const { return modules_; }
-    const std::string &GetName() const { return name_; }
+    string_cref GetName() const { return name_; }
+    string_cref GetOwnerSID() const { return owner_; }
     const ProcessMemoryState &GetMemoryState() const { return memory_usage_state_; }
     uint32_t GetID() const { return process_ID_; }
     uint32_t GetParentID() const { return parent_process_ID_; }
@@ -141,12 +146,14 @@ enum class UserPrivilegeType {
 
 class UserSnapshot {
 private:
+    typedef const std::string & string_cref;
     typedef const std::wstring & wstring_cref;
 
     std::wstring name_ = {};
     std::wstring full_name_ = {};
     std::wstring description_ = {};
-    std::wstring SID_ = {};
+    std::string SID_ = {};
+    ::PSID PSID_ = nullptr;
     uint32_t login_count_ = 0;
     uint32_t relative_ID_ = 0;
     UserPrivilegeType privilege_type_ = UserPrivilegeType::Reserved;
@@ -172,7 +179,8 @@ public:
 
     uint32_t GetRelativeID() const { return relative_ID_; }
 
-    wstring_cref GetSID() const { return SID_; }
+    string_cref GetSIDAsString() const { return SID_; }
+    const ::PSID &GetSID() const { return PSID_; }
 
     bool IsActive() const { return active_; }
     bool IsCurrentUser() const { return current_; }

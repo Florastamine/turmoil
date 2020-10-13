@@ -23,6 +23,19 @@ static std::string ConvertPriorityClass(const uint32_t priority)
     }
 }
 
+static std::wstring GetUserNameFromSIDString(const std::string &SID, /* const */ lavender::os::OSInformation &os)
+{
+    if (os.IsReady() && os.TakeSnapshot(lavender::os::SnapshotType::Users)) {
+        for (const lavender::os::UserSnapshot &user : os.GetSystemSnapshot().GetUsers()) {
+            if (user.GetSIDAsString() == SID) {
+                return user.GetName();
+            }
+        }
+    }
+
+    return L"(?)";
+}
+
 int main(int, const char *[])
 {
     using std::cout;
@@ -53,15 +66,16 @@ int main(int, const char *[])
         cout << "GetRegisteredProductKey(): " << os.GetRegisteredProductKey() << n;
         cout << "IsGenuine(): " << os.IsGenuine() << n;
 
-        if (os.TakeSnapshot(lavender::os::SnapshotType::Services | lavender::os::SnapshotType::Processes)) {
+        if (os.TakeSnapshot(lavender::os::SnapshotType::Everything)) {
             const auto snapshot = os.GetSystemSnapshot();
 
             for (const auto &service : snapshot.GetServices()) {
                 cout << service.GetName() << " (" << magic_enum::enum_name(service.GetType()) << ", " << magic_enum::enum_name(service.GetStatus()) << ")\n";
             }
-
+            
             for (const auto &process : snapshot.GetProcesses()) {
                 cout << process.GetName() << " (ID: " << process.GetID() << " (parent: " << process.GetParentID() << "), priority: " << ConvertPriorityClass(process.GetPriority()) << ", threads: " << process.GetThreadCount() << ")" << n;
+                wcout << L"  Owner: " << GetUserNameFromSIDString(process.GetOwnerSID(), os) << n;
 
                 const auto &memory_usage_state = process.GetMemoryState();
                 cout << "  Using " << memory_usage_state.GetPrivateWorkingSetUsage() / (::SIZE_T) 1024 << " KiB (private working set)" << n;
@@ -83,7 +97,7 @@ int main(int, const char *[])
                 wcout << L"  GetFullName() = " << user.GetFullName() << n;
                 wcout << L"  GetDescription() = " << user.GetDescription() << n;
                 wcout << L"  GetRelativeID() = " << user.GetRelativeID() << n;
-                wcout << L"  GetSID() = " << user.GetSID() << n;
+                cout << "  GetSIDAsString() = " << user.GetSIDAsString() << n;
                 cout << "  GetPrivilege() = " << magic_enum::enum_name(user.GetPrivilege()) << n;
                 cout << "  GetLastLoginTimeAsString() = " << user.GetLastLoginTimeAsString() << n;
                 cout << "  GetLastLogoutTimeAsString() = " << user.GetLastLogoutTimeAsString() << n;
