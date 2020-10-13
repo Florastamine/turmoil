@@ -241,6 +241,7 @@ bool CPUInformation::ParseCPUIDInformation()
     else {
         if ((EDX >> 20) & 0x1) capabilities_[CPUCapabilities::NX] = true;
         if ((EDX >> 22) & 0x1) capabilities_[CPUCapabilities::EXTENDED_MMX] = true;
+        if ((EDX >> 26) & 0x1) capabilities_[CPUCapabilities::PDPE1GB] = true;
         if ((EDX >> 27) & 0x1) capabilities_[CPUCapabilities::RDTSCP] = true;
         if ((EDX >> 29) & 0x1) capabilities_[CPUCapabilities::EM64T] = true;
 

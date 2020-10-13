@@ -46,7 +46,9 @@ enum class CPUCapabilities : uint16_t {
     EST, // Enhanced SpeedStep
     SHA, AES,
     SVM, // Secure Virtual Machine, e. g. AMD virtualization flag
-    VMX // Intel virtualization flag
+    VMX, // Intel virtualization flag
+    PDPE1GB // Large page size (1 GiB) support, present in Westmere Intel CPUs going forward. However this isn't completely reliable, e. g. 
+            // Sandy Bridge does NOT support PDPE1GB.
 };
 
 enum class CPUCacheType : uint8_t { I, D, Unified, Reserved };
