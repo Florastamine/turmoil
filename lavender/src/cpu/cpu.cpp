@@ -162,8 +162,10 @@ bool CPUInformation::ParseCPUIDInformation()
     }
     else {
         if (EDX         & 0x1) capabilities_[CPUCapabilities::x87] = true;
+        if ((EDX >>  3) & 0x1) capabilities_[CPUCapabilities::PSE] = true;
         if ((EDX >>  4) & 0x1) capabilities_[CPUCapabilities::TSC] = true;
         if ((EDX >>  6) & 0x1) capabilities_[CPUCapabilities::PAE] = true;
+        if ((EDX >> 17) & 0x1) capabilities_[CPUCapabilities::PSE36] = true;
         if ((EDX >> 19) & 0x1) capabilities_[CPUCapabilities::CLFLUSH] = true;
         if ((EDX >> 23) & 0x1) capabilities_[CPUCapabilities::MMX] = true;
         if ((EDX >> 25) & 0x1) capabilities_[CPUCapabilities::SSE] = true;

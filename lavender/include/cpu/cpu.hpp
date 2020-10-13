@@ -28,7 +28,7 @@ namespace lavender {
 namespace cpu {
 
 enum class CPUCapabilities : uint16_t {
-    MMX, EXTENDED_MMX, x87, PAE, EM64T, // EXTENDED_MMX is AMD MMX
+    MMX, EXTENDED_MMX, x87, PAE, PSE36, EM64T, // EXTENDED_MMX is AMD MMX
     CLFLUSH, // Flush Cache Line having the _mm_clflush() intrinsic
     CLFLUSHOPT,
     SSE, SSE2, SSE3, SSSE3, SSE4A, SSE41, SSE42, SSE5,
@@ -47,6 +47,7 @@ enum class CPUCapabilities : uint16_t {
     SHA, AES,
     SVM, // Secure Virtual Machine, e. g. AMD virtualization flag
     VMX, // Intel virtualization flag
+    PSE, // Large page size (2/4 MiB). 4 MiB by default, and 2 MiB when PAE is enabled.
     PDPE1GB // Large page size (1 GiB) support, present in Westmere Intel CPUs going forward. However this isn't completely reliable, e. g. 
             // Sandy Bridge does NOT support PDPE1GB.
 };
