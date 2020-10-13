@@ -2,13 +2,14 @@
 #include <ctime>
 #include <string>
 #include <vector>
+#include <memory>
 #include <functional>
 #include <unordered_map>
 
-#include <helpers.hpp>
 #include <nt.hpp>
 #include <os/os.hpp>
 #include <os/version.hpp>
+#include <process/process.hpp>
 
 #if defined(_WIN32)
     #include <windows.h>
@@ -17,6 +18,7 @@
     #include <ntstatus.h>
     #include <lm.h>
     #include <tlhelp32.h>
+    #include <psapi.h>
     #include <shlobj.h> // It is <shlobj.h> that has ::SHGetKnownFolderPath(), and not <shlobj_core.h>
     #include <sddl.h>
 #endif
@@ -36,6 +38,7 @@ bool OSInformation::Initialize()
             ParseEnvironmentStrings() &&
             ParseLocale() &&
             ParseArchitecture() &&
+            ParsePageFileSize() &&
             ParseFixedPaths() &&
             TakeSnapshot(SnapshotType::Everything);
         
@@ -43,6 +46,29 @@ bool OSInformation::Initialize()
     }
 
     return ready_;
+}
+
+static ::DWORD GetPageFileSize()
+{
+    ::SYSTEM_INFO info = {0};
+    const auto is_WOW64 = process::is_process_WOW64(::GetCurrentProcess());
+
+    if (is_WOW64.has_value()) {
+        if (is_WOW64.value())
+            ::GetNativeSystemInfo(&info);
+        else
+            ::GetSystemInfo(&info);
+        
+        return info.dwPageSize;
+    }
+
+    return (::DWORD) 0u;
+}
+
+bool OSInformation::ParsePageFileSize()
+{
+    page_file_size_ = (uint16_t) GetPageFileSize();
+    return true;
 }
 
 bool OSInformation::ParseArchitecture()
@@ -331,7 +357,7 @@ static std::wstring GetCurrentLoggedInUserName()
     if (::GetUserNameW(buffer, &buffer_size)) {
         s = std::wstring(buffer);
     }
-    
+
     return s;
 }
 
@@ -640,6 +666,30 @@ bool ProcessSnapshot::InitializeAssociatedImageData()
   return true;
 }
 
+static constexpr const float factor = 0.25f;
+
+static uint32_t GetPrivateWorkingSetSize(const ::HANDLE &process)
+{
+    std::unique_ptr<::PSAPI_WORKING_SET_INFORMATION> buffer(new ::PSAPI_WORKING_SET_INFORMATION);
+
+    if (::QueryWorkingSet(process, buffer.get(), sizeof(::PSAPI_WORKING_SET_INFORMATION)) == 0) {
+        if (::GetLastError() == ERROR_BAD_LENGTH) {
+            const auto size = sizeof(::PSAPI_WORKING_SET_INFORMATION) + ((buffer->NumberOfEntries + (ULONG_PTR)(buffer->NumberOfEntries * factor)) * sizeof(::PSAPI_WORKING_SET_BLOCK));
+            buffer.reset();
+            buffer = std::unique_ptr<::PSAPI_WORKING_SET_INFORMATION>(static_cast<::PSAPI_WORKING_SET_INFORMATION *>(malloc(size)));
+            if (::QueryWorkingSet(process, buffer.get(), size) != 0) {
+                uint32_t private_pages = 0;
+                for (auto i = 0; i < buffer->NumberOfEntries; ++i) {
+                    if (!buffer->WorkingSetInfo[i].Shared)
+                        ++private_pages;
+                }
+
+                return private_pages * GetPageFileSize();
+            }
+        }
+    }
+}
+
 bool ProcessSnapshot::InitializeProcessEntryData(const ::PROCESSENTRY32 &entry)
 {
     name_ = entry.szExeFile;
@@ -650,11 +700,33 @@ bool ProcessSnapshot::InitializeProcessEntryData(const ::PROCESSENTRY32 &entry)
 
     // Transparently handling process priority from ::PROCESSENTRY32 - this information couldn't be deduced from ::PROCESSENTRY32 so we have 
     // to open a handle to our process in order to query for priority class.
-    ::HANDLE process = ::OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, entry.th32ProcessID);
-
-    if(process != nullptr)
+    if(::HANDLE process = ::OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, entry.th32ProcessID); process != nullptr)
     {
+        // Query for current memory usage
+        if (::PROCESS_MEMORY_COUNTERS_EX state = {0}; ::GetProcessMemoryInfo(process, (::PROCESS_MEMORY_COUNTERS *) &state, sizeof(state)) != 0) {
+
+            // Private usage is good enough of an approximation, but not necessarily returns the amount of memory a process is using, and certainly differs from Task Manager, 
+            // which returns the processes' active working sets instead of private bytes.
+
+            // Query for private bytes if you're interested in the actual occupied memory, as private bytes excludes shared pages/memory-mapped files.
+            ::SIZE_T private_bytes = state.PrivateUsage;
+
+            // Shared working set is the combined total of the non-paged private bytes AND memory-mapped files. This is the amount displayed in Task Manager.
+            ::SIZE_T shared_working_set_bytes = state.WorkingSetSize;
+
+            // Private working set is the non-paged private bytes in the shared working set area.
+            ::SIZE_T private_working_set_bytes = GetPrivateWorkingSetSize(process);
+
+            // Number of page faults.
+            // MSDN documentation doesn't distinguish between types of page faults which are recorded, but this is the amount shown in Task Manager.
+            uint32_t page_faults = state.PageFaultCount;
+
+            memory_usage_state_.Initialize(private_bytes, shared_working_set_bytes, private_working_set_bytes, page_faults);
+        }
+
+        // Query for priority class
         priority_ = ::GetPriorityClass(process);
+        
         ::CloseHandle(process);
     }
     

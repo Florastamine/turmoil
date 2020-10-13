@@ -39,6 +39,7 @@ int main(int, const char *[])
         }
         
         cout << "GetArchitecture(): " << os.GetArchitecture() << "-bit" << n;
+        cout << "GetPageFileSize(): " << os.GetPageFileSize() / (uint16_t) 1024u << " KiB" << n;
         wcout << "GetLocale(): " << os.GetLocale() << n;
 
         cout << "GetComputerName():\n";
@@ -54,12 +55,19 @@ int main(int, const char *[])
 
         if (os.TakeSnapshot(lavender::os::SnapshotType::Services | lavender::os::SnapshotType::Processes)) {
             const auto snapshot = os.GetSystemSnapshot();
+
             for (const auto &service : snapshot.GetServices()) {
                 cout << service.GetName() << " (" << magic_enum::enum_name(service.GetType()) << ", " << magic_enum::enum_name(service.GetStatus()) << ")\n";
             }
 
             for (const auto &process : snapshot.GetProcesses()) {
                 cout << process.GetName() << " (ID: " << process.GetID() << " (parent: " << process.GetParentID() << "), priority: " << ConvertPriorityClass(process.GetPriority()) << ", threads: " << process.GetThreadCount() << ")" << n;
+
+                const auto &memory_usage_state = process.GetMemoryState();
+                cout << "  Using " << memory_usage_state.GetPrivateWorkingSetUsage() / (::SIZE_T) 1024 << " KiB (private working set)" << n;
+                cout << "  Using " << memory_usage_state.GetSharedWorkingSetUsage() / (::SIZE_T) 1024 << " KiB (shared working set)" << n;
+                cout << "  PFs: " << memory_usage_state.GetPageFaultCount() << n;
+
                 for (const auto &module : process.GetModules()) {
                     cout << "  GetName(): " << module.GetName() << n;
                     cout << "  GetImagePath(): " << module.GetImagePath() << n;

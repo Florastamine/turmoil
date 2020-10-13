@@ -34,6 +34,36 @@ public:
     uint32_t GetParentID() const { return process_ID_; }
 };
 
+struct ProcessMemoryState {
+private:
+    bool ready_ = false;
+    uint32_t page_faults_;
+    ::SIZE_T private_bytes_;
+    ::SIZE_T shared_working_set_bytes_;
+    ::SIZE_T private_working_set_bytes_;
+
+public:
+    bool IsReady() const { return ready_; }
+
+    bool Initialize(const ::SIZE_T private_bytes, const ::SIZE_T shared_working_set_bytes, const ::SIZE_T private_working_set_bytes, const uint32_t page_faults)
+    {
+        if (!ready_) {
+            private_bytes_ = private_bytes;
+            shared_working_set_bytes_ = shared_working_set_bytes;
+            private_working_set_bytes_ = private_working_set_bytes;
+            page_faults_ = page_faults;
+            ready_ = true;
+        }
+
+        return ready_;
+    }
+
+    uint32_t GetPageFaultCount() const { return page_faults_; }
+    ::SIZE_T GetPrivateUsage() const { return private_bytes_; }
+    ::SIZE_T GetPrivateWorkingSetUsage() const { return private_working_set_bytes_; }
+    ::SIZE_T GetSharedWorkingSetUsage() const { return shared_working_set_bytes_; }
+};
+
 class ProcessSnapshot {
 private:
     std::vector<ProcessModuleSnapshot> modules_;
@@ -43,6 +73,7 @@ private:
     uint32_t threads_;
     uint32_t priority_;
     uint32_t base_priority_;
+    ProcessMemoryState memory_usage_state_;
 
     bool InitializeProcessEntryData(const ::PROCESSENTRY32 &process);
     bool InitializeAssociatedImageData();
@@ -50,6 +81,7 @@ private:
 public:
     const std::vector<ProcessModuleSnapshot> &GetModules() const { return modules_; }
     const std::string &GetName() const { return name_; }
+    const ProcessMemoryState &GetMemoryState() const { return memory_usage_state_; }
     uint32_t GetID() const { return process_ID_; }
     uint32_t GetParentID() const { return parent_process_ID_; }
     uint32_t GetPriority() const { return priority_; }
@@ -225,6 +257,7 @@ private:
     bool genuine_ = false;
 
     uint16_t architecture_ = 0;
+    uint16_t page_file_size_ = 0;
     map_string computer_names_ = {};
     map_string environment_strings_ = {};
     folder_path_map paths_ = {};
@@ -239,6 +272,7 @@ private:
     bool ParseGenuine();
     bool ParseEnvironmentStrings();
     bool ParseArchitecture();
+    bool ParsePageFileSize();
     bool ParseFixedPaths();
 
     bool ParseSHGetKnownFolderPathDirectory();
@@ -255,6 +289,7 @@ public:
     bool IsGenuine() const { return genuine_; }
 
     uint16_t GetArchitecture() const { return architecture_; }
+    uint16_t GetPageFileSize() const { return page_file_size_; }
     wstring_cref GetLocale() const { return locale_; }
     string_cref GetUserName() const { return user_name_; }
     map_string_cref GetComputerName() const { return computer_names_; }
