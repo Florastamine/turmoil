@@ -348,6 +348,86 @@ bool TakeProcessesSnapshot(SystemSnapshot &os)
     return false;
 }
 
+static wchar_t __property_string_scratch[1024];
+static ::DWORD __property_DWORD_scratch = 0;
+
+static ::DWORD QueryDWORDProperty(const ::HKEY key, const wchar_t *property)
+{
+    ::DWORD size = sizeof(__property_DWORD_scratch);
+
+    if(::RegQueryValueExW(key, property, nullptr, nullptr, (::LPBYTE) &__property_DWORD_scratch, &size) == ERROR_SUCCESS)
+        return (::DWORD) __property_DWORD_scratch;
+    
+    if (property == L"NoModify" || property == L"NoRepair" || property == L"NoRemove")
+        return (::DWORD) 0;
+    
+    return (::DWORD) /* -1 */ 0;
+}
+
+static std::wstring QueryStringProperty(const ::HKEY key, const wchar_t *property)
+{
+    ::DWORD size = sizeof(__property_string_scratch);
+
+    if(::RegQueryValueExW(key, property, nullptr, nullptr, (::LPBYTE) __property_string_scratch, &size) == ERROR_SUCCESS) {
+        return std::wstring(__property_string_scratch);
+    }
+    
+    return L"(?)";
+}
+
+bool TakeInstalledSoftwareSnapshot(SystemSnapshot &os)
+{
+    static constexpr const ::DWORD flags = KEY_READ | KEY_WOW64_64KEY;
+    static const std::wstring root = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\";
+
+    if (::HKEY key = nullptr; ::RegOpenKeyExW(HKEY_LOCAL_MACHINE, root.c_str(), 0, flags, &key) == ERROR_SUCCESS) {
+        ::DWORD i = 0;
+        wchar_t buffer[1024];
+
+        while (true) {
+            ::DWORD size = sizeof(buffer);
+            if (::RegEnumKeyExW(key, i, buffer, &size, nullptr, nullptr, nullptr, nullptr) == ERROR_SUCCESS) {
+                if(::HKEY child = nullptr; ::RegOpenKeyExW(HKEY_LOCAL_MACHINE, (root + buffer).c_str(), 0, KEY_READ, &child) == ERROR_SUCCESS) {
+                    os.installed_software_.push_back(SoftwareSnapshot(
+                        buffer,
+                        QueryStringProperty(child, L"DisplayName"),
+                        QueryStringProperty(child, L"DisplayVersion"),
+                        QueryStringProperty(child, L"Publisher"),
+                        QueryStringProperty(child, L"Comments"),
+                        QueryStringProperty(child, L"Contact"),
+                        QueryStringProperty(child, L"InstallDate"),
+                        QueryStringProperty(child, L"InstallLocation"),
+                        ([&] () -> std::wstring {
+                            std::wstring s;
+                            if (s = QueryStringProperty(child, L"UninstallString"); s == L"(?)")
+                                s = QueryStringProperty(child, L"UninstallString_Hidden");
+                            
+                            return s;
+                        })(),
+                        QueryStringProperty(child, L"InstallSource"),
+                        QueryStringProperty(child, L"URLInfoAbout"),
+                        QueryDWORDProperty(child, L"NoModify") == (::DWORD) 0,
+                        QueryDWORDProperty(child, L"NoRepair") == (::DWORD) 0,
+                        QueryDWORDProperty(child, L"NoRemove") == (::DWORD) 0,
+                        QueryDWORDProperty(child, L"EstimatedSize") * (uint64_t) 1024u
+                    ));
+
+                    ::RegCloseKey(child);
+                }
+            }
+            else {
+                break;
+            }
+            ++i;
+        }
+
+        ::RegCloseKey(key);
+        return true;
+    }
+
+    return false;
+}
+
 static std::wstring GetCurrentLoggedInUserName()
 {
     std::wstring s;
@@ -473,16 +553,20 @@ bool TakeUsersSnapshot(SystemSnapshot &os)
 
 bool OSInformation::TakeSnapshot(const SnapshotType &flags)
 {
-    if ((flags & SnapshotType::Processes)) {
+    if (flags & SnapshotType::Processes) {
         TakeProcessesSnapshot(snapshot_);
     }
     
-    if ((flags & SnapshotType::Services)) {
+    if (flags & SnapshotType::Services) {
         TakeServicesSnapshot(snapshot_);
     }
 
-    if ((flags & SnapshotType::Users)) {
+    if (flags & SnapshotType::Users) {
         TakeUsersSnapshot(snapshot_);
+    }
+
+    if (flags & SnapshotType::InstalledSoftware) {
+        TakeInstalledSoftwareSnapshot(snapshot_);
     }
     
     return true;

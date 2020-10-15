@@ -189,11 +189,86 @@ public:
     bool Initialize(const ::USER_INFO_3 *user);
 };
 
+class SoftwareSnapshot {
+private:
+    typedef const std::wstring & wstring_cref;
+
+    std::wstring GUID_;
+    std::wstring name_;
+    std::wstring version_;
+    std::wstring publisher_;
+    std::wstring description_;
+    std::wstring contact_;
+    std::wstring install_date_;
+    std::wstring install_path_;
+    std::wstring uninstaller_path_;
+    std::wstring installer_source_path_;
+    std::wstring url_about_;
+    bool can_modify_;
+    bool can_repair_;
+    bool can_uninstall_;
+    uint64_t estimated_size_;
+    
+public:
+    SoftwareSnapshot(
+        wstring_cref GUID, 
+        wstring_cref name, 
+        wstring_cref version, 
+        wstring_cref publisher, 
+        wstring_cref description, 
+        wstring_cref contact, 
+        wstring_cref install_date, 
+        wstring_cref install_path, 
+        wstring_cref uninstaller_path, 
+        wstring_cref installer_source_path,
+        wstring_cref url_about,
+        bool can_modify,
+        bool can_repair,
+        bool can_uninstall,
+        uint64_t estimated_size
+    ) :
+        GUID_(GUID),
+        name_(name),
+        version_(version),
+        publisher_(publisher),
+        description_(description),
+        contact_(contact),
+        install_date_(install_date),
+        install_path_(install_path),
+        uninstaller_path_(uninstaller_path),
+        installer_source_path_(installer_source_path),
+        url_about_(url_about),
+        can_modify_(can_modify),
+        can_repair_(can_repair),
+        can_uninstall_(can_uninstall),
+        estimated_size_(estimated_size)
+    {}
+
+    wstring_cref GetGUID() const { return GUID_; }
+    wstring_cref GetName() const { return name_; }
+    wstring_cref GetVersion() const { return version_; }
+    wstring_cref GetPublisher() const { return publisher_; }
+    wstring_cref GetDescription() const { return description_; }
+    wstring_cref GetContact() const { return contact_; }
+    wstring_cref GetInstallDate() const { return install_date_; }
+    wstring_cref GetInstalledPath() const { return install_path_; }
+    wstring_cref GetUninstallerPath() const { return uninstaller_path_; }
+    wstring_cref GetAboutURL() const { return url_about_; }
+    wstring_cref GetInstallerSourcePath() const { return installer_source_path_; }
+
+    bool CanModify() const { return can_modify_; }
+    bool CanRepair() const { return can_repair_; }
+    bool CanUninstall() const { return can_uninstall_; }
+
+    uint64_t GetEstimatedSize() const { return estimated_size_; }
+};
+
 enum class SnapshotType {
     Processes = 1 << 0,
     Services = 1 << 1,
     Users = 1 << 2,
-    Everything = Processes | Services | Users
+    InstalledSoftware = 1 << 3,
+    Everything = Processes | Services | Users | InstalledSoftware
 };
 
 template <typename E, typename = std::enable_if<std::is_enum<E>::value>>
@@ -215,15 +290,18 @@ private:
     std::vector<ProcessSnapshot> processes_ = {};
     std::vector<ServiceSnapshot> services_ = {};
     std::vector<UserSnapshot> users_ = {};
+    std::vector<SoftwareSnapshot> installed_software_ = {};
 
     friend bool TakeProcessesSnapshot(SystemSnapshot &os);
     friend bool TakeServicesSnapshot(SystemSnapshot &os);
     friend bool TakeUsersSnapshot(SystemSnapshot &os);
+    friend bool TakeInstalledSoftwareSnapshot(SystemSnapshot &os);
 
 public:
     const std::vector<ProcessSnapshot> &GetProcesses() const { return processes_; }
     const std::vector<ServiceSnapshot> &GetServices() const { return services_; }
     const std::vector<UserSnapshot> &GetUsers() const { return users_; }
+    const std::vector<SoftwareSnapshot> &GetInstalledSoftware() const { return installed_software_; }
 
     bool ReserveProcessEntries();
     bool ReserveServiceEntries();

@@ -102,6 +102,23 @@ int main(int, const char *[])
                 cout << "  GetLastLoginTimeAsString() = " << user.GetLastLoginTimeAsString() << n;
                 cout << "  GetLastLogoutTimeAsString() = " << user.GetLastLogoutTimeAsString() << n;
             }
+
+            for (const auto &software : snapshot.GetInstalledSoftware()) {
+                wcout << L"Name = " << software.GetName() << n;
+                wcout << L"  GUID = " << software.GetGUID() << n;
+                wcout << L"  Version = " << software.GetVersion() << n;
+                wcout << L"  Publisher = " << software.GetPublisher() << n;
+                wcout << L"  Description = " << software.GetDescription() << n;
+                wcout << L"  Contact = " << software.GetContact() << n;
+                wcout << L"  Estimated Size = " << software.GetEstimatedSize() / 1024u << " KiB" << n;
+                wcout << L"  Installed Date = " << software.GetInstallDate() << n;
+                wcout << L"  Installed Path = " << software.GetInstalledPath() << n;
+                wcout << L"  Uninstaller Path = " << software.GetUninstallerPath() << n;
+                wcout << L"  Installer Source Path = " << software.GetInstallerSourcePath() << n;
+                wcout << L"  About URL = " << software.GetAboutURL() << n;
+                wcout << L"  Can Modify = " << software.CanModify() << "; Can Repair = " << software.CanRepair() << "; Can Uninstall = " << software.CanUninstall() << n;
+                wcout << n;
+            }
         }
         
         cout << "GetPaths(): " << n;
