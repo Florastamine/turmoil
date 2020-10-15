@@ -358,7 +358,9 @@ static ::DWORD QueryDWORDProperty(const ::HKEY key, const wchar_t *property)
     if(::RegQueryValueExW(key, property, nullptr, nullptr, (::LPBYTE) &__property_DWORD_scratch, &size) == ERROR_SUCCESS)
         return (::DWORD) __property_DWORD_scratch;
     
-    if (property == L"NoModify" || property == L"NoRepair" || property == L"NoRemove")
+    // In case either of the NoModify/NoRepair/NoRemove key couldn't be found, we'll be assuming that such feature is available, as with the case of NoRemove.
+    // (many keys having NoRemove absent, yet are uninstallable.)
+    if ((std::wcscmp(property, L"NoModify") == 0) || (std::wcscmp(property, L"NoRepair") == 0) || (std::wcscmp(property == L"NoRemove") == 0))
         return (::DWORD) 0;
     
     return (::DWORD) /* -1 */ 0;
