@@ -360,10 +360,11 @@ static ::DWORD QueryDWORDProperty(const ::HKEY key, const wchar_t *property)
     
     // In case either of the NoModify/NoRepair/NoRemove key couldn't be found, we'll be assuming that such feature is available, as with the case of NoRemove.
     // (many keys having NoRemove absent, yet are uninstallable.)
-    if ((std::wcscmp(property, L"NoModify") == 0) || (std::wcscmp(property, L"NoRepair") == 0) || (std::wcscmp(property == L"NoRemove") == 0))
-        return (::DWORD) 0;
+    if ((std::wcscmp(property, L"NoModify") == 0) || (std::wcscmp(property, L"NoRepair") == 0) || (std::wcscmp(property, L"NoRemove") == 0))
+        return (::DWORD) 1;
     
-    return (::DWORD) /* -1 */ 0;
+    // Might need a proper way to signify if the specified property couldn't be found.
+    return (::DWORD) -1;
 }
 
 static std::wstring QueryStringProperty(const ::HKEY key, const wchar_t *property)
