@@ -14,10 +14,10 @@ cxx_id = cxx.get_id()
 if cxx_id == 'msvc'
     # Due to cpp_std not being honored (github.com/mesonbuild/meson/issues/5590), for now we'll have to resort to setting C++ standard through cpp_args.
     cpp_args = ['/std:c++17', '/DEBUG:FULL']
-    link_args = ['PowrProf.lib', 'Slwga.lib', 'Rpcrt4.lib', 'Netapi32.lib']
+    link_args = ['powrprof.lib', 'slwga.lib', 'rpcrt4.lib', 'netapi32.lib', 'ntdll.dll']
 elif cxx_id == 'gcc' or cxx_id == 'clang'
     cpp_args = ['-std=c++17', '-g']
-    link_args = ['-lPowrProf', '-lSlwga', '-lRpcrt4', '-lnetapi32', '-lstdc++']
+    link_args = ['-lpowrprof', '-lslwga', '-lrpcrt4', '-lnetapi32', '-lntdll', '-lstdc++']
 else
     error('\nUnidentified compiler: ' + cxx_id + '\n' + meson.project_name() + ' requires either GCC, LLVM/Clang, or MSVC.')
 endif
