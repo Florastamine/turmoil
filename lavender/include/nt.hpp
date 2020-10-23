@@ -7,6 +7,8 @@
 #endif
 
 #include <string>
+#include <vector>
+#include <memory>
 #include <optional>
 
 namespace lavender {
@@ -14,9 +16,11 @@ namespace lavender {
 namespace platform {
 
 bool IsProcessElevated(const ::HANDLE process);
+std::vector<std::wstring> GetGroupsOfUser(const ::LPCWSTR name);
 std::optional<::ULONG> GetSystemErrorFromNTStatus(const ::NTSTATUS status);
 std::optional<::ULONG> GetSystemErrorFromLSAStatus(const ::NTSTATUS status);
 std::optional<std::string> GetStringSIDFromPSID(const ::PSID psid);
+std::optional<std::unique_ptr<::SID>> GetPSIDFromName(const ::LPCWSTR name);
 
 }
 
