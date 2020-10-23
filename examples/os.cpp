@@ -1,5 +1,4 @@
-#include <iostream>
-#include <vector>
+#include <nt.hpp>
 #include <os/os.hpp>
 
 #include <third_party/magic_enum.hpp>
@@ -7,6 +6,9 @@
 #if defined(_WIN32)
     #include <winbase.h>
 #endif
+
+#include <iostream>
+#include <vector>
 
 static constexpr const char n = '\n';
 
@@ -90,6 +92,7 @@ int main(int, const char *[])
                 cout << n << n;
             }
 
+            cout << "Users: " << snapshot.GetUsers().size() << n;
             for (const auto &user : snapshot.GetUsers()) {
                 wcout << L"User: " << user.GetName() << n;
                 wcout << L"  IsActive() = " << user.IsActive() << n;
@@ -101,6 +104,28 @@ int main(int, const char *[])
                 cout << "  GetPrivilege() = " << magic_enum::enum_name(user.GetPrivilege()) << n;
                 cout << "  GetLastLoginTimeAsString() = " << user.GetLastLoginTimeAsString() << n;
                 cout << "  GetLastLogoutTimeAsString() = " << user.GetLastLogoutTimeAsString() << n;
+
+                cout << "  GetRights():" << n;
+                if (const auto rights = user.GetAvailableRights(); rights.size() > 0) {
+                    for (const auto &right : rights) {
+                        cout << "    " << magic_enum::enum_name(right.GetType()) << ' ' << right.IsEnabled() << n;
+                    }
+                }
+                else {
+                    cout << "    -" << n;
+                }
+
+                cout << "  GetGroups():" << n;
+                if (const auto groups = user.GetGroups(); groups.size() > 0) {
+                    for (const auto &group : groups) {
+                        wcout << "    " << group << n;
+                    }
+                }
+                else {
+                    cout << "    -" << n;
+                }
+
+                cout << n;
             }
 
             for (const auto &software : snapshot.GetInstalledSoftware()) {
@@ -121,7 +146,7 @@ int main(int, const char *[])
             }
         }
         
-        cout << "GetPaths(): " << n;
+        cout << "GetPaths():" << n;
         for (const auto &path : os.GetPaths()) {
             cout << magic_enum::enum_name(path.first) << " = ";
             wcout << path.second << n;
