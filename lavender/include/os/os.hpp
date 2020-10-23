@@ -3,14 +3,17 @@
 
 #include <os/version.hpp>
 
-#include <type_traits>
-#include <unordered_map>
-
 #if defined(_WIN32)
     #include <windows.h>
     #include <tlhelp32.h> // ::PROCESSENTRY32
     #include <lm.h> // ::USER_INFO_3
+    #include <ntsecapi.h> // ::LSA_UNICODE_STRING
 #endif
+
+#include <string>
+#include <vector>
+#include <type_traits>
+#include <unordered_map>
 
 namespace lavender {
 
@@ -144,6 +147,57 @@ enum class UserPrivilegeType {
     Administrator
 };
 
+enum class UserRightType {
+    Reserved,
+    AllowInteractiveLogin,
+    DenyInteractiveLogin,
+    AllowInteractiveBatchLogin,
+    DenyInteractiveBatchLogin,
+    AllowBatchLogin,
+    DenyBatchLogin,
+    AllowRemoteInteractiveLogin,
+    DenyRemoteInteractiveLogin,
+    AllowNetworkLogin,
+    DenyNetworkLogin,
+    Shutdown,
+    RemoteShutdown,
+    TakeOwnership,
+    DebugProcesses,
+    Impersonate,
+    ImpersonateAsOtherUser,
+    IncreaseProcessesPriority,
+    IncreaseProcessesMemoryQuota,
+    LoadDeviceDriver,
+    SetTimeZone,
+    SetSystemTime,
+    _CreateSymbolicLink,
+    CreatePagefile,
+    Backup,
+    Restore,
+    Undocking,
+    VolumeIOManagement,
+    CreateGlobalObjects,
+    ModifyNVRAM,
+    SystemProfiling,
+    ProcessProfiling,
+    ControlSecurityAndAuditingLog,
+    BypassTraverseChecking
+};
+
+struct UserRight {
+private:
+    UserRightType type_ = UserRightType::Reserved;
+    bool enabled_ = false;
+    bool ready_ = false;
+
+public:
+    UserRightType GetType() const { return type_; }
+    bool IsEnabled() const { return enabled_; }
+
+    bool Initialize(const ::LSA_UNICODE_STRING *buffer);
+    bool IsReady() const { return ready_; }
+};
+
 class UserSnapshot {
 private:
     typedef const std::string & string_cref;
@@ -157,6 +211,8 @@ private:
     uint32_t login_count_ = 0;
     uint32_t relative_ID_ = 0;
     UserPrivilegeType privilege_type_ = UserPrivilegeType::Reserved;
+    std::vector<std::wstring> groups_ = {};
+    std::vector<UserRight> rights_ = {};
     time_t time_last_login_;
     time_t time_last_logout_;
     bool active_ = false;
@@ -181,6 +237,9 @@ public:
 
     string_cref GetSIDAsString() const { return SID_; }
     const ::PSID &GetSID() const { return PSID_; }
+
+    const std::vector<UserRight> &GetAvailableRights() const { return rights_; }
+    const std::vector<std::wstring> &GetGroups() const { return groups_; }
 
     bool IsActive() const { return active_; }
     bool IsCurrentUser() const { return current_; }
@@ -305,6 +364,7 @@ public:
 
     bool ReserveProcessEntries();
     bool ReserveServiceEntries();
+    bool ReserveUserEntries();
 };
 
 enum class PathType : uint16_t {

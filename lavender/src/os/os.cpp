@@ -21,6 +21,7 @@
     #include <psapi.h>
     #include <shlobj.h> // It is <shlobj.h> that has ::SHGetKnownFolderPath(), and not <shlobj_core.h>
     #include <sddl.h>
+    #include <ntsecapi.h>
 #endif
 
 #include <third_party/magic_enum.hpp>
@@ -132,7 +133,7 @@ bool OSInformation::ParseSHGetKnownFolderPathDirectory()
         paths_[type] = std::wstring();
 
         if (const auto path = GetInternalFolderPath(GUID); path.has_value())
-            paths_[type] = *path + L'\\';        
+            paths_[type] = *path + L'\\';      
     }
 
     return true;
@@ -497,15 +498,42 @@ bool UserSnapshot::Initialize(const ::USER_INFO_3 *user)
         // According to MSDN documentation, the logout timestamp field (usri3_last_logoff) is currently left unused, nor even USER_INFO_4.
         time_last_logout_ = user->usri3_last_logoff;
 
+        groups_ = platform::GetGroupsOfUser(name_.c_str());
+        
+        for (const auto &group : groups_) {
+            if (auto psid = platform::GetPSIDFromName(group.c_str()).value_or(nullptr); psid.get()) {
+                ::LSA_OBJECT_ATTRIBUTES unused = {0};
+                ::ZeroMemory(&unused, sizeof(unused));
+
+                ::LSA_HANDLE handle = nullptr;
+                if (::LsaOpenPolicy(nullptr, &unused, GENERIC_EXECUTE, &handle) == STATUS_SUCCESS) {
+                    PLSA_UNICODE_STRING rights;
+                    ::ULONG count;
+                    if (::NTSTATUS status = ::LsaEnumerateAccountRights(handle, psid.get(), (::LSA_UNICODE_STRING **) &rights, &count); status == STATUS_SUCCESS) {
+                        for (int i = 0; i < count; ++i) {
+                            if (UserRight right; right.Initialize(&rights[i]))
+                                rights_.push_back(right);
+                        }
+
+                        ::LsaFreeMemory(rights);
+                    }
+                    else {
+                        if (platform::GetSystemErrorFromLSAStatus(status) == ERROR_FILE_NOT_FOUND) {
+                            // TODO: Handle this.
+                            // This could be happening if the specified group doesn't have any associated right(s).
+                        }
+                    }
+                    ::LsaClose(handle);
+                }
+            }
+        }
+
         // Getting the user's SID requires access to USER_INFO_4, which ::NetUserEnum() doesn't support. Query ::NetUserGetInfo() for USER_INFO_4,
         // the field which was once containing the user's relative ID (usri3_user_id) is now occupied by their PSID.
-        LPUSER_INFO_4 info = nullptr;
-        if (::NetUserGetInfo(nullptr, name_.c_str(), 4, (LPBYTE *) &info) == NERR_Success) {
+        ::LPUSER_INFO_4 info = nullptr;
+        if (::NetUserGetInfo(nullptr, name_.c_str(), 4, (::LPBYTE *) &info) == NERR_Success) {
             PSID_ = info->usri4_user_sid;
-            if (::LPSTR buffer = nullptr; ::ConvertSidToStringSidA(info->usri4_user_sid, &buffer) != 0) {
-                SID_ = std::string(buffer);
-                ::LocalFree(buffer);
-            }
+            SID_ = platform::GetStringSIDFromPSID(info->usri4_user_sid).value_or("(?)");
         }
 
         return true;
@@ -526,16 +554,16 @@ bool TakeUsersSnapshot(SystemSnapshot &os)
         status = ::NetUserEnum(nullptr, 3, FILTER_NORMAL_ACCOUNT, (LPBYTE*) &buffer, MAX_PREFERRED_LENGTH, &count, &total, &handler);
         if ((status == NERR_Success) || (status == ERROR_MORE_DATA))
         {
-            if (auto ptr = buffer; ptr != nullptr)
-            {
-                for (auto i = 0; i < count; ++i)
-                {
-                    if (ptr != nullptr)
+            if (os.ReserveUserEntries()) {
+                if (auto ptr = buffer; ptr != nullptr) {
+                    for (auto i = 0; i < count; ++i)
                     {
-                        if (UserSnapshot user; user.Initialize(ptr))
-                            os.users_.push_back(user);
-                        
-                        ++ptr;
+                        if (ptr != nullptr) {
+                            if (UserSnapshot user; user.Initialize(ptr))
+                                os.users_.push_back(user);
+                            
+                            ++ptr;
+                        }
                     }
                 }
             }
@@ -832,10 +860,7 @@ bool ProcessSnapshot::InitializeProcessEntryData(const ::PROCESSENTRY32 &entry)
             }
 
             if (flag) {
-                if (::LPSTR owner = nullptr; ::ConvertSidToStringSidA(buffer.User.Sid, &owner) != 0) {
-                    owner_ = std::string(owner);
-                    ::LocalFree(owner);
-                }
+                owner_ = platform::GetStringSIDFromPSID(buffer.User.Sid).value_or("(?)");
             }
             
             ::CloseHandle(token);
@@ -859,6 +884,85 @@ bool SystemSnapshot::ReserveServiceEntries()
     // Ditto!
     services_.clear();
     return true;
+}
+
+bool SystemSnapshot::ReserveUserEntries()
+{
+    // Ditto!
+    users_.clear();
+    return true;
+}
+
+bool UserRight::Initialize(const ::LSA_UNICODE_STRING *buffer)
+{
+    if (!ready_ && buffer) {
+        if (std::wcscmp(buffer->Buffer, L"SeInteractiveLogonRight") == 0)
+            type_ = UserRightType::AllowInteractiveLogin;
+        else if (std::wcscmp(buffer->Buffer, L"SeDenyInteractiveLogonRight") == 0)
+            type_ = UserRightType::DenyInteractiveLogin;
+        else if (std::wcscmp(buffer->Buffer, L"SeBatchLogonRight") == 0)
+            type_ = UserRightType::AllowBatchLogin;
+        else if (std::wcscmp(buffer->Buffer, L"SeDenyBatchLogonRight") == 0)
+            type_ = UserRightType::DenyBatchLogin;
+        else if (std::wcscmp(buffer->Buffer, L"SeNetworkLogonRight") == 0)
+            type_ = UserRightType::AllowNetworkLogin;
+        else if (std::wcscmp(buffer->Buffer, L"SeDenyNetworkLogonRight") == 0)
+            type_ = UserRightType::DenyNetworkLogin;
+        else if (std::wcscmp(buffer->Buffer, L"SeRemoteInteractiveLogonRight") == 0)
+            type_ = UserRightType::AllowRemoteInteractiveLogin;
+        else if (std::wcscmp(buffer->Buffer, L"SeDenyRemoteInteractiveLogonRight") == 0)
+            type_ = UserRightType::DenyRemoteInteractiveLogin;
+        else if (std::wcscmp(buffer->Buffer, L"SeShutdownPrivilege") == 0)
+            type_ = UserRightType::Shutdown;
+        else if (std::wcscmp(buffer->Buffer, L"SeRemoteShutdownPrivilege") == 0)
+            type_ = UserRightType::RemoteShutdown;
+        else if (std::wcscmp(buffer->Buffer, L"SeTakeOwnershipPrivilege") == 0)
+            type_ = UserRightType::TakeOwnership;
+        else if (std::wcscmp(buffer->Buffer, L"SeDebugPrivilege") == 0)
+            type_ = UserRightType::DebugProcesses;
+        else if (std::wcscmp(buffer->Buffer, L"SeImpersonatePrivilege") == 0)
+            type_ = UserRightType::Impersonate;
+        else if (std::wcscmp(buffer->Buffer, L"SeDelegateSessionUserImpersonatePrivilege") == 0)
+            type_ = UserRightType::ImpersonateAsOtherUser;
+        else if (std::wcscmp(buffer->Buffer, L"SeIncreaseBasePriorityPrivilege") == 0)
+            type_ = UserRightType::IncreaseProcessesPriority;
+        else if (std::wcscmp(buffer->Buffer, L"SeIncreaseQuotaPrivilege") == 0)
+            type_ = UserRightType::IncreaseProcessesMemoryQuota;
+        else if (std::wcscmp(buffer->Buffer, L"SeLoadDriverPrivilege") == 0)
+            type_ = UserRightType::LoadDeviceDriver;
+        else if (std::wcscmp(buffer->Buffer, L"SeTimeZonePrivilege") == 0)
+            type_ = UserRightType::SetTimeZone;
+        else if (std::wcscmp(buffer->Buffer, L"SeSystemtimePrivilege") == 0)
+            type_ = UserRightType::SetSystemTime;
+        else if (std::wcscmp(buffer->Buffer, L"SeCreateSymbolicLinkPrivilege") == 0)
+            type_ = UserRightType::_CreateSymbolicLink;
+        else if (std::wcscmp(buffer->Buffer, L"SeCreatePagefilePrivilege") == 0)
+            type_ = UserRightType::CreatePagefile;
+        else if (std::wcscmp(buffer->Buffer, L"SeUndockPrivilege") == 0)
+            type_ = UserRightType::Undocking;
+        else if (std::wcscmp(buffer->Buffer, L"SeBackupPrivilege") == 0)
+            type_ = UserRightType::Backup;
+        else if (std::wcscmp(buffer->Buffer, L"SeRestorePrivilege") == 0)
+            type_ = UserRightType::Restore;
+        else if (std::wcscmp(buffer->Buffer, L"SeManageVolumePrivilege") == 0)
+            type_ = UserRightType::VolumeIOManagement;
+        else if (std::wcscmp(buffer->Buffer, L"SeCreateGlobalPrivilege") == 0)
+            type_ = UserRightType::CreateGlobalObjects;
+        else if (std::wcscmp(buffer->Buffer, L"SeSystemEnvironmentPrivilege") == 0)
+            type_ = UserRightType::ModifyNVRAM;
+        else if (std::wcscmp(buffer->Buffer, L"SeSystemProfilePrivilege") == 0)
+            type_ = UserRightType::SystemProfiling;
+        else if (std::wcscmp(buffer->Buffer, L"SeProfileSingleProcessPrivilege") == 0)
+            type_ = UserRightType::ProcessProfiling;
+        else if (std::wcscmp(buffer->Buffer, L"SeSecurityPrivilege") == 0)
+            type_ = UserRightType::ControlSecurityAndAuditingLog;
+        else if (std::wcscmp(buffer->Buffer, L"SeChangeNotifyPrivilege") == 0)
+            type_ = UserRightType::BypassTraverseChecking;
+        
+        ready_ = true;
+    }
+
+    return ready_;
 }
 
 }
