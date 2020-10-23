@@ -38,12 +38,18 @@ static std::wstring GetUserNameFromSIDString(const std::string &SID, /* const */
     return L"(?)";
 }
 
-int main(int, const char *[])
+int main(int, const char *argv[])
 {
     using std::cout;
     using std::wcout;
     using std::endl;
     using std::flush;
+
+    if (!lavender::platform::IsProcessElevated(::GetCurrentProcess())) {
+        cout << "[W A R N I N G]" << n;
+        cout << argv[0] << " wasn't run under Administrator privileges. The following features will NOT run properly: " << n;
+        cout << "* User rights enumeration" << n << n;
+    }
     
     if (lavender::os::OSInformation os; os.Initialize()) {
         if (const lavender::os::OSVersionInformation &version = os.GetVersionInformation(); version.IsReady()) {
