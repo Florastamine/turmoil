@@ -81,6 +81,22 @@ std::optional<bool> IsProcessWOW64(const ::HANDLE process)
     return std::nullopt;   
 }
 
+std::optional<::DWORD> GetPageFileSize()
+{
+    ::SYSTEM_INFO info = {0};
+
+    if (const auto WOW64 = IsProcessWOW64(::GetCurrentProcess()); WOW64.has_value()) {
+        if (WOW64.value())
+            ::GetNativeSystemInfo(&info);
+        else
+            ::GetSystemInfo(&info);
+        
+        return info.dwPageSize;
+    }
+
+    return std::nullopt;
+}
+
 std::optional<::ULONG> GetSystemErrorFromNTStatus(const ::NTSTATUS status)
 {
     if (::ULONG error = ::RtlNtStatusToDosError(status); error != ERROR_MR_MID_NOT_FOUND)

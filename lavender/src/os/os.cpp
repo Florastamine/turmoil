@@ -49,26 +49,9 @@ bool OSInformation::Initialize()
     return ready_;
 }
 
-static ::DWORD GetPageFileSize()
-{
-    ::SYSTEM_INFO info = {0};
-    const auto is_WOW64 = platform::IsProcessWOW64(::GetCurrentProcess());
-
-    if (is_WOW64.has_value()) {
-        if (is_WOW64.value())
-            ::GetNativeSystemInfo(&info);
-        else
-            ::GetSystemInfo(&info);
-        
-        return info.dwPageSize;
-    }
-
-    return (::DWORD) 0u;
-}
-
 bool OSInformation::ParsePageFileSize()
 {
-    page_file_size_ = (uint16_t) GetPageFileSize();
+    page_file_size_ = (uint16_t) platform::GetPageFileSize().value_or(0);
     return true;
 }
 
@@ -800,7 +783,7 @@ static uint32_t GetPrivateWorkingSetSize(const ::HANDLE &process)
                         ++private_pages;
                 }
 
-                return private_pages * GetPageFileSize();
+                return private_pages * platform::GetPageFileSize().value_or(0);
             }
         }
     }
