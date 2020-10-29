@@ -28,6 +28,34 @@ bool IsProcessElevated(const ::HANDLE process)
     return false;
 }
 
+bool IsPrivilegeEnabled(const ::LPCWSTR privilege)
+{
+    ::HANDLE token = nullptr;
+
+    if (::HANDLE process = ::GetCurrentProcess(); ::OpenProcessToken(process, TOKEN_QUERY, &token) != 0) {
+        ::LUID luid = {0};
+        if (::LookupPrivilegeValueW(nullptr, (::LPCWSTR) privilege, &luid) != 0) {
+            ::PRIVILEGE_SET privs = {
+                .PrivilegeCount = 1,
+                .Control = PRIVILEGE_SET_ALL_NECESSARY,
+                .Privilege[0] = {
+                    .Luid = luid,
+                    .Attributes = SE_PRIVILEGE_ENABLED
+                }
+            };
+            
+            if (::BOOL result = FALSE; ::PrivilegeCheck(token, &privs, &result) != 0) {
+                ::CloseHandle(token);
+                return result == TRUE;
+            }
+        }
+
+        ::CloseHandle(token);
+    }
+
+    return false;
+}
+
 std::optional<::ULONG> GetSystemErrorFromNTStatus(const ::NTSTATUS status)
 {
     if (::ULONG error = ::RtlNtStatusToDosError(status); error != ERROR_MR_MID_NOT_FOUND)

@@ -16,6 +16,7 @@ namespace lavender {
 namespace platform {
 
 bool IsProcessElevated(const ::HANDLE process);
+bool IsPrivilegeEnabled(const ::LPCWSTR privilege);
 std::vector<std::wstring> GetGroupsOfUser(const ::LPCWSTR name);
 std::optional<::ULONG> GetSystemErrorFromNTStatus(const ::NTSTATUS status);
 std::optional<::ULONG> GetSystemErrorFromLSAStatus(const ::NTSTATUS status);
