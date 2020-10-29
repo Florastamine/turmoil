@@ -1,11 +1,13 @@
 // Licensed under GPLv2 or later until the library is deemed stable enough for general use, see LICENSE in the source tree.
 #include <nt.hpp>
+#include <os/version.hpp>
 
 #if defined(_WIN32)
     #include <lm.h>
     #include <sddl.h>
     #include <winternl.h>
     #include <ntsecapi.h>
+    #include <wow64apiset.h>
 #endif
 
 namespace lavender {
@@ -54,6 +56,29 @@ bool IsPrivilegeEnabled(const ::LPCWSTR privilege)
     }
 
     return false;
+}
+
+using IsWow64Process2Ptr = ::BOOL (WINAPI *) (::HANDLE, ::USHORT *, ::USHORT *);
+std::optional<bool> IsProcessWOW64(const ::HANDLE process)
+{
+    // IsWow64Process2() was introduced in NT 10 version 1511
+    if (os::OSVersionInformation version; version.Initialize() && version.GetBuildNumber() >= 1511) {
+        const auto module = ::GetModuleHandle("kernel32.dll");
+        if (module != nullptr) {
+            const IsWow64Process2Ptr f = (IsWow64Process2Ptr) ::GetProcAddress(module, "IsWow64Process2");
+            ::USHORT target_info, host_info;
+            if (f != nullptr && f(process, &target_info, &host_info) != 0) {
+                return target_info != IMAGE_FILE_MACHINE_UNKNOWN; // target_info returns IMAGE_FILE_MACHINE_UNKNOWN if is not a WOW64 process.
+            }
+        }
+    }
+    else {
+        ::BOOL status;
+        if (::IsWow64Process(process, &status) != 0)
+            return status;
+    }
+
+    return std::nullopt;   
 }
 
 std::optional<::ULONG> GetSystemErrorFromNTStatus(const ::NTSTATUS status)

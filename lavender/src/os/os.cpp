@@ -52,7 +52,7 @@ bool OSInformation::Initialize()
 static ::DWORD GetPageFileSize()
 {
     ::SYSTEM_INFO info = {0};
-    const auto is_WOW64 = process::is_process_WOW64(::GetCurrentProcess());
+    const auto is_WOW64 = platform::IsProcessWOW64(::GetCurrentProcess());
 
     if (is_WOW64.has_value()) {
         if (is_WOW64.value())
