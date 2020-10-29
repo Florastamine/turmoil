@@ -46,7 +46,7 @@ int main(int, const char *argv[])
     using std::flush;
 
     if (!lavender::platform::IsProcessElevated(::GetCurrentProcess())) {
-        cout << "[W A R N I N G]" << n;
+        cout << "[Warning]" << n;
         cout << argv[0] << " wasn't run under Administrator privileges. The following features will NOT run properly: " << n;
         cout << "* User rights enumeration" << n << n;
     }
@@ -97,7 +97,7 @@ int main(int, const char *argv[])
                 }
                 cout << n << n;
             }
-
+            
             cout << "Users: " << snapshot.GetUsers().size() << n;
             for (const auto &user : snapshot.GetUsers()) {
                 wcout << L"User: " << user.GetName() << n;
@@ -114,7 +114,7 @@ int main(int, const char *argv[])
                 cout << "  GetRights():" << n;
                 if (const auto rights = user.GetAvailableRights(); rights.size() > 0) {
                     for (const auto &right : rights) {
-                        cout << "    " << magic_enum::enum_name(right.GetType()) << ' ' << right.IsEnabled() << n;
+                        cout << "    " << magic_enum::enum_name(right.GetType()) << ' ' << (right.IsEnabled() ? "(enabled)" : "(disabled)") << n;
                     }
                 }
                 else {
@@ -151,14 +151,14 @@ int main(int, const char *argv[])
                 wcout << n;
             }
         }
-        
+
         cout << "GetPaths():" << n;
         for (const auto &path : os.GetPaths()) {
             cout << magic_enum::enum_name(path.first) << " = ";
             wcout << path.second << n;
         }
         cout << n;
-
+        
         cout << flush;
     }
 }
