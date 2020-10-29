@@ -1,11 +1,4 @@
 // Licensed under GPLv2 or later until the library is deemed stable enough for general use, see LICENSE in the source tree.
-#include <ctime>
-#include <string>
-#include <vector>
-#include <memory>
-#include <functional>
-#include <unordered_map>
-
 #include <nt.hpp>
 #include <os/os.hpp>
 #include <os/version.hpp>
@@ -25,6 +18,13 @@
 #endif
 
 #include <third_party/magic_enum.hpp>
+
+#include <ctime>
+#include <string>
+#include <vector>
+#include <memory>
+#include <optional>
+#include <unordered_map>
 
 namespace lavender {
 
@@ -893,71 +893,66 @@ bool SystemSnapshot::ReserveUserEntries()
     return true;
 }
 
+struct LPWSTRHasher {
+    std::size_t operator()(/* const */ ::LPWSTR lhs) const
+    {
+        // sdbm hasher, adapted from http://www.cse.yorku.ca/~oz/hash.html
+        std::size_t hash = 0;
+        int c;
+
+        while (c = *lhs++)
+            hash = c + (hash << 6) + (hash << 16) - hash;
+
+        return hash;
+    }
+};
+
+class LPWSTRComparator {
+public:
+    bool operator()(const ::LPWSTR lhs, const ::LPWSTR rhs) const { return std::wcscmp(lhs, rhs) == 0; }
+};
+
 bool UserRight::Initialize(const ::LSA_UNICODE_STRING *buffer)
 {
+    static const std::unordered_map<::LPWSTR, UserRightType, LPWSTRHasher, LPWSTRComparator> rights_map = {
+        { (::LPWSTR) L"SeInteractiveLogonRight", UserRightType::AllowInteractiveLogin },
+        { (::LPWSTR) L"SeDenyInteractiveLogonRight", UserRightType::DenyInteractiveLogin },
+        { (::LPWSTR) L"SeBatchLogonRight", UserRightType::AllowBatchLogin },
+        { (::LPWSTR) L"SeDenyBatchLogonRight", UserRightType::DenyBatchLogin },
+        { (::LPWSTR) L"SeNetworkLogonRight", UserRightType::AllowNetworkLogin },
+        { (::LPWSTR) L"SeDenyNetworkLogonRight", UserRightType::DenyNetworkLogin },
+        { (::LPWSTR) L"SeRemoteInteractiveLogonRight", UserRightType::AllowRemoteInteractiveLogin },
+        { (::LPWSTR) L"SeDenyRemoteInteractiveLogonRight", UserRightType::DenyRemoteInteractiveLogin },
+        { (::LPWSTR) L"SeShutdownPrivilege", UserRightType::Shutdown },
+        { (::LPWSTR) L"SeRemoteShutdownPrivilege", UserRightType::RemoteShutdown },
+        { (::LPWSTR) L"SeTakeOwnershipPrivilege", UserRightType::TakeOwnership },
+        { (::LPWSTR) L"SeDebugPrivilege", UserRightType::DebugProcesses },
+        { (::LPWSTR) L"SeImpersonatePrivilege", UserRightType::Impersonate },
+        { (::LPWSTR) L"SeDelegateSessionUserImpersonatePrivilege", UserRightType::ImpersonateAsOtherUser },
+        { (::LPWSTR) L"SeIncreaseBasePriorityPrivilege", UserRightType::IncreaseProcessesPriority },
+        { (::LPWSTR) L"SeIncreaseQuotaPrivilege", UserRightType::IncreaseProcessesMemoryQuota },
+        { (::LPWSTR) L"SeLoadDriverPrivilege", UserRightType::LoadDeviceDriver },
+        { (::LPWSTR) L"SeTimeZonePrivilege", UserRightType::SetTimeZone },
+        { (::LPWSTR) L"SeSystemtimePrivilege", UserRightType::SetSystemTime },
+        { (::LPWSTR) L"SeCreateSymbolicLinkPrivilege", UserRightType::_CreateSymbolicLink },
+        { (::LPWSTR) L"SeCreatePagefilePrivilege", UserRightType::CreatePagefile },
+        { (::LPWSTR) L"SeUndockPrivilege", UserRightType::Undocking },
+        { (::LPWSTR) L"SeBackupPrivilege", UserRightType::Backup },
+        { (::LPWSTR) L"SeRestorePrivilege", UserRightType::Restore },
+        { (::LPWSTR) L"SeManageVolumePrivilege", UserRightType::VolumeIOManagement },
+        { (::LPWSTR) L"SeCreateGlobalPrivilege", UserRightType::CreateGlobalObjects },
+        { (::LPWSTR) L"SeSystemEnvironmentPrivilege", UserRightType::ModifyNVRAM },
+        { (::LPWSTR) L"SeSystemProfilePrivilege", UserRightType::SystemProfiling },
+        { (::LPWSTR) L"SeProfileSingleProcessPrivilege", UserRightType::ProcessProfiling },
+        { (::LPWSTR) L"SeSecurityPrivilege", UserRightType::ControlSecurityAndAuditingLog },
+        { (::LPWSTR) L"SeChangeNotifyPrivilege", UserRightType::BypassTraverseChecking },
+    };
+
     if (!ready_ && buffer) {
-        if (std::wcscmp(buffer->Buffer, L"SeInteractiveLogonRight") == 0)
-            type_ = UserRightType::AllowInteractiveLogin;
-        else if (std::wcscmp(buffer->Buffer, L"SeDenyInteractiveLogonRight") == 0)
-            type_ = UserRightType::DenyInteractiveLogin;
-        else if (std::wcscmp(buffer->Buffer, L"SeBatchLogonRight") == 0)
-            type_ = UserRightType::AllowBatchLogin;
-        else if (std::wcscmp(buffer->Buffer, L"SeDenyBatchLogonRight") == 0)
-            type_ = UserRightType::DenyBatchLogin;
-        else if (std::wcscmp(buffer->Buffer, L"SeNetworkLogonRight") == 0)
-            type_ = UserRightType::AllowNetworkLogin;
-        else if (std::wcscmp(buffer->Buffer, L"SeDenyNetworkLogonRight") == 0)
-            type_ = UserRightType::DenyNetworkLogin;
-        else if (std::wcscmp(buffer->Buffer, L"SeRemoteInteractiveLogonRight") == 0)
-            type_ = UserRightType::AllowRemoteInteractiveLogin;
-        else if (std::wcscmp(buffer->Buffer, L"SeDenyRemoteInteractiveLogonRight") == 0)
-            type_ = UserRightType::DenyRemoteInteractiveLogin;
-        else if (std::wcscmp(buffer->Buffer, L"SeShutdownPrivilege") == 0)
-            type_ = UserRightType::Shutdown;
-        else if (std::wcscmp(buffer->Buffer, L"SeRemoteShutdownPrivilege") == 0)
-            type_ = UserRightType::RemoteShutdown;
-        else if (std::wcscmp(buffer->Buffer, L"SeTakeOwnershipPrivilege") == 0)
-            type_ = UserRightType::TakeOwnership;
-        else if (std::wcscmp(buffer->Buffer, L"SeDebugPrivilege") == 0)
-            type_ = UserRightType::DebugProcesses;
-        else if (std::wcscmp(buffer->Buffer, L"SeImpersonatePrivilege") == 0)
-            type_ = UserRightType::Impersonate;
-        else if (std::wcscmp(buffer->Buffer, L"SeDelegateSessionUserImpersonatePrivilege") == 0)
-            type_ = UserRightType::ImpersonateAsOtherUser;
-        else if (std::wcscmp(buffer->Buffer, L"SeIncreaseBasePriorityPrivilege") == 0)
-            type_ = UserRightType::IncreaseProcessesPriority;
-        else if (std::wcscmp(buffer->Buffer, L"SeIncreaseQuotaPrivilege") == 0)
-            type_ = UserRightType::IncreaseProcessesMemoryQuota;
-        else if (std::wcscmp(buffer->Buffer, L"SeLoadDriverPrivilege") == 0)
-            type_ = UserRightType::LoadDeviceDriver;
-        else if (std::wcscmp(buffer->Buffer, L"SeTimeZonePrivilege") == 0)
-            type_ = UserRightType::SetTimeZone;
-        else if (std::wcscmp(buffer->Buffer, L"SeSystemtimePrivilege") == 0)
-            type_ = UserRightType::SetSystemTime;
-        else if (std::wcscmp(buffer->Buffer, L"SeCreateSymbolicLinkPrivilege") == 0)
-            type_ = UserRightType::_CreateSymbolicLink;
-        else if (std::wcscmp(buffer->Buffer, L"SeCreatePagefilePrivilege") == 0)
-            type_ = UserRightType::CreatePagefile;
-        else if (std::wcscmp(buffer->Buffer, L"SeUndockPrivilege") == 0)
-            type_ = UserRightType::Undocking;
-        else if (std::wcscmp(buffer->Buffer, L"SeBackupPrivilege") == 0)
-            type_ = UserRightType::Backup;
-        else if (std::wcscmp(buffer->Buffer, L"SeRestorePrivilege") == 0)
-            type_ = UserRightType::Restore;
-        else if (std::wcscmp(buffer->Buffer, L"SeManageVolumePrivilege") == 0)
-            type_ = UserRightType::VolumeIOManagement;
-        else if (std::wcscmp(buffer->Buffer, L"SeCreateGlobalPrivilege") == 0)
-            type_ = UserRightType::CreateGlobalObjects;
-        else if (std::wcscmp(buffer->Buffer, L"SeSystemEnvironmentPrivilege") == 0)
-            type_ = UserRightType::ModifyNVRAM;
-        else if (std::wcscmp(buffer->Buffer, L"SeSystemProfilePrivilege") == 0)
-            type_ = UserRightType::SystemProfiling;
-        else if (std::wcscmp(buffer->Buffer, L"SeProfileSingleProcessPrivilege") == 0)
-            type_ = UserRightType::ProcessProfiling;
-        else if (std::wcscmp(buffer->Buffer, L"SeSecurityPrivilege") == 0)
-            type_ = UserRightType::ControlSecurityAndAuditingLog;
-        else if (std::wcscmp(buffer->Buffer, L"SeChangeNotifyPrivilege") == 0)
-            type_ = UserRightType::BypassTraverseChecking;
+        if (const auto ptr = rights_map.find(buffer->Buffer); ptr != rights_map.end()) {
+            type_ = (*ptr).second;
+            enabled_ = platform::IsPrivilegeEnabled(buffer->Buffer);
+        }
         
         ready_ = true;
     }
