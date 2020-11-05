@@ -37,16 +37,15 @@ bool IsPrivilegeEnabled(const ::LPCWSTR privilege)
     if (::HANDLE process = ::GetCurrentProcess(); ::OpenProcessToken(process, TOKEN_QUERY, &token) != 0) {
         ::LUID luid = {0};
         if (::LookupPrivilegeValueW(nullptr, (::LPCWSTR) privilege, &luid) != 0) {
-            ::PRIVILEGE_SET privs = {
-                .PrivilegeCount = 1,
-                .Control = PRIVILEGE_SET_ALL_NECESSARY,
-                .Privilege[0] = {
-                    .Luid = luid,
-                    .Attributes = SE_PRIVILEGE_ENABLED
-                }
-            };
-            
-            if (::BOOL result = FALSE; ::PrivilegeCheck(token, &privs, &result) != 0) {
+            // TODO: Adapt C99-style struct initialization whenever we can afford the switch to C++20, as I don't want to 
+            // enable a separate flag just for a few tiny convenient bits here and there.
+            ::PRIVILEGE_SET privilege;
+            privilege.PrivilegeCount = 1;
+            privilege.Control = PRIVILEGE_SET_ALL_NECESSARY;
+            privilege.Privilege[0].Luid = luid;
+            privilege.Privilege[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+            if (::BOOL result = FALSE; ::PrivilegeCheck(token, &privilege, &result) != 0) {
                 ::CloseHandle(token);
                 return result == TRUE;
             }
